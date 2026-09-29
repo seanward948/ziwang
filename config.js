@@ -1,4 +1,4 @@
 window.ZIWANG_CONFIG = {
-  gaId: "",
-  coffeeUrl: "https://buymeacoffee.com/yourname"
+  gaId: "QY3BBLGRHF",
+  coffeeUrl: "https://buymeacoffee.com/ygQf1M8jAA"
 };
