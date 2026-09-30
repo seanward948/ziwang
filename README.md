@@ -56,7 +56,6 @@ I'm not a software developer. I built Zìwǎng with [Claude](https://claude.ai).
 |---|---|
 | Words | 10,969 words from the new HSK 3.0 syllabus, levels 1 to 7–9 |
 | Characters | 2,970 HSK characters, plus about 360 components such as 讠 and 氵 |
-| Pages | One page per character, e.g. [ziwang.app/zi/电/](https://ziwang.app/zi/电/) |
 
 ### Data
 
