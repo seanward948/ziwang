@@ -24,8 +24,13 @@ if(/^https:\/\/(www\.)?(buymeacoffee\.com|coff\.ee)\/[A-Za-z0-9_.-]+\/?$/.test(c
 }
 
 /* ---------- themes ---------- */
-const SKINS=[['auto','Auto','Exercise book by day, blackboard by night'],['exercise','练习本','Exercise book'],['blackboard','黑板','Blackboard'],
-  ['porcelain','青花','Porcelain'],['inkwash','水墨','Ink wash'],['lantern','灯笼','Lantern']];
+const SKINS=[
+  ['auto','自动','Auto','Browser light/dark mode'],
+  ['exercise','练习本','Exercise book','Light · green grid'],
+  ['blackboard','黑板','Blackboard','Dark · chalk on slate'],
+  ['porcelain','青花','Porcelain','Light · blue and white'],
+  ['inkwash','水墨','Ink wash','Light · ink and red seal'],
+  ['lantern','灯笼','Lantern','Dark · red and gold']];
 let skin=store.get('skin','auto');
 const themeMenu=$('#themes'),themeBtn=$('#themeBtn');
 function paintThemeMeta(){const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=getComputedStyle(root).getPropertyValue('--paper').trim()}
@@ -33,8 +38,10 @@ function applySkin(s,user){skin=s;if(s==='auto')delete root.dataset.skin;else ro
   if(themeMenu)themeMenu.querySelectorAll('[data-skin]').forEach(b=>b.setAttribute('aria-checked',b.dataset.skin===s));
   paintThemeMeta();if(user)track('theme_change',{theme:s});document.dispatchEvent(new Event('skinchange'))}
 if(themeMenu){
-  themeMenu.innerHTML=SKINS.map(([k,zh,en])=>`<button type="button" role="menuitemradio" data-skin="${k}" aria-checked="${k===skin}">
-    <span class="sw sw-${k}" aria-hidden="true"><i></i><i></i><i></i></span><span class="tn">${k==='auto'?'Auto':`<span lang="zh-Hans" class="cn">${zh}</span> ${en}`}</span>${k==='auto'?`<small>${en}</small>`:''}</button>`).join('');
+  themeMenu.innerHTML=SKINS.map(([k,zh,en,desc])=>`<button type="button" role="menuitemradio" data-skin="${k}" aria-checked="${k===skin}">
+    <span class="sw sw-${k}" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="tn"><b>${en}</b><small>${desc}</small></span>
+    <span class="tz cn" lang="zh-Hans" aria-hidden="true">${zh}</span></button>`).join('');
   themeBtn.addEventListener('click',e=>{e.stopPropagation();const open=themeMenu.hidden;themeMenu.hidden=!open;themeBtn.setAttribute('aria-expanded',open);if(open)themeMenu.querySelector('[aria-checked="true"]')?.focus()});
   themeMenu.addEventListener('click',e=>{const b=e.target.closest('[data-skin]');if(b){applySkin(b.dataset.skin,true);themeMenu.hidden=true;themeBtn.setAttribute('aria-expanded','false');themeBtn.focus()}});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!themeMenu.hidden){themeMenu.hidden=true;themeBtn.setAttribute('aria-expanded','false');themeBtn.focus()}});
@@ -48,6 +55,7 @@ let tt;function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.clas
 /* ---------- data ---------- */
 let core=null;
 const ready=fetch('/assets/data.json').then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>(core=makeCore(d)));
+window.ZIWANG_READY=ready;
 ready.catch(()=>toast('The dictionary didn’t load. Check your connection and refresh.'));
 
 /* ---------- speech ---------- */
@@ -60,6 +68,29 @@ function speak(t){try{if(!('speechSynthesis' in window))throw 0;pickVoice();
   catch(e){toast('Audio isn’t available in this browser.')}}
 
 /* ---------- search ---------- */
+/* rotating examples in the search box */
+(function(){
+  const box=document.getElementById('q');if(!box)return;
+  const EX=['电','妈妈','ma3','shui','friend','学生','hao','tea','xue sheng','happy','朋友','ni3 hao3','cat','北京','zhong'];
+  const base='Search ';
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let i=Math.floor(Math.random()*EX.length),t=null;
+  const show=s=>{box.placeholder=base+s};
+  const busy=()=>document.activeElement===box||box.value;
+  function cycle(){
+    const w=EX[i++%EX.length];const chars=[...w];
+    if(reduce){show(w);t=setTimeout(cycle,3500);return}
+    let n=0;
+    (function type(){if(busy()){show(w);t=setTimeout(cycle,3000);return}
+      show(chars.slice(0,++n).join('')+(n<chars.length?'':''));
+      if(n<chars.length)t=setTimeout(type,110);else t=setTimeout(erase,2400)})();
+    function erase(){if(busy()){t=setTimeout(cycle,3000);return}
+      if(n>0){show(chars.slice(0,--n).join(''));t=setTimeout(erase,45)}else t=setTimeout(cycle,350)}
+  }
+  show('电, ma3 or “friend”');t=setTimeout(cycle,2500);
+  document.addEventListener('visibilitychange',()=>{clearTimeout(t);if(!document.hidden)t=setTimeout(cycle,800)});
+})();
+
 const q=$('#q'),resBox=$('#results');let sel=-1,searchTimer;
 function closeResults(){if(resBox)resBox.hidden=true}
 function showResults(){
@@ -90,6 +121,17 @@ function goChar(c){closeResults();if(q)q.value='';if(explorer)explorer.go(c);els
 /* ---------- wander ---------- */
 function wanderPool(){return Object.values(core.CH).filter(o=>o.lv<=3&&o.words.length>=3).map(o=>o.c)}
 $('#wander')?.addEventListener('click',()=>ready.then(()=>{const p=wanderPool();let c;do{c=p[Math.floor(Math.random()*p.length)]}while(explorer&&c===explorer.cur()&&p.length>1);track('wander');goChar(c)}));
+
+/* ---------- games gallery previews ---------- */
+(function(){
+  const cards=document.querySelectorAll('.gcard .pv');if(!cards.length)return;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const touch=matchMedia('(hover: none)').matches;
+  cards.forEach(pv=>{const card=pv.closest('.gcard');
+    if(touch&&'IntersectionObserver' in window){new IntersectionObserver(es=>es.forEach(en=>pv.classList.toggle('play',en.isIntersecting)),{threshold:.6}).observe(pv)}
+    else{card.addEventListener('mouseenter',()=>pv.classList.add('play'));card.addEventListener('mouseleave',()=>pv.classList.remove('play'));
+      card.addEventListener('focus',()=>pv.classList.add('play'));card.addEventListener('blur',()=>pv.classList.remove('play'))}});
+})();
 
 /* ---------- global clicks ---------- */
 let explorer=null;
