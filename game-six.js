@@ -8,7 +8,7 @@ const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const NS='http://www.w3.org/2000/svg';
 const K=20; // neighbours shown around each character
 root.innerHTML='<p class="g-loading">Loading the word web…</p>';
-(window.ZIWANG_READY||Promise.reject()).then(init).catch(()=>{root.innerHTML='<p class="g-loading">The dictionary didn’t load. Check your connection and refresh.</p>'});
+(window.ZIWANG_FULL||window.ZIWANG_READY||Promise.reject()).then(init).catch(()=>{root.innerHTML='<p class="g-loading">The dictionary didn’t load. Check your connection and refresh.</p>'});
 
 function init(C){
   const {CH,WORDS,esc,pyHTML,pyHTMLJoined,charPy,charDef,path,sylTone}=C;
@@ -21,7 +21,7 @@ function init(C){
   const graphs={};
   function graph(level){
     const key=String(level);if(graphs[key])return graphs[key];
-    const max=level==='all'?7:+level;const best=new Map();
+    const max=level==='all'?8:+level;const best=new Map();
     for(const w of WORDS){ // WORDS is ordered by level, then frequency
       if(w.lv>max||[...w.w].length>4)continue;
       const cs=[...new Set(w.w)].filter(c=>CH[c]);if(cs.length<2)continue;
@@ -111,7 +111,10 @@ function init(C){
   function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
   function drawWeb(anim){
     const stage=$('sxStage');
-    stage.innerHTML=`<svg class="sx-web" id="sxWeb" role="group" aria-label="Characters you can hop to"></svg><div class="sx-card" id="sxCard" aria-live="polite"></div>`;
+    stage.innerHTML=`<svg class="sx-web" id="sxWeb" role="group" aria-label="Characters you can hop to"></svg><div class="sx-card" id="sxCard" aria-live="polite"></div>
+      <form class="sx-type" id="sxType" autocomplete="off"><label for="sxWord">Know another word with <span class="cn" lang="zh-Hans">${esc(cur())}</span>?</label>
+        <span class="sx-typein"><input id="sxWord" type="text" lang="zh-Hans" placeholder="Type it here" enterkeyhint="go"><button class="btn" type="submit">Hop</button></span>
+        <span class="sx-typemsg" id="sxTypeMsg" aria-live="polite"></span></form>`;
     const svg=$('sxWeb');const W=stage.clientWidth||700;const narrow=W<560;
     const H=narrow?Math.round(W*1.08):Math.min(520,Math.max(440,Math.round(W*.6)));
     svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.style.height=H+'px';
@@ -151,11 +154,11 @@ function init(C){
     root.querySelectorAll('.sx-node').forEach(g=>g.classList.toggle('sel',g.dataset.n===n));
     root.querySelectorAll('.sx-edge').forEach(l=>l.classList.toggle('sel',l.dataset.n===n));
     const w=x.w;
-    $('sxCard').innerHTML=`<div class="sx-word"><span class="w cn" lang="zh-Hans">${[...w.w].map(ch=>`<span class="${ch===c?'from':ch===n?'to':''}">${esc(ch)}</span>`).join('')}</span><span>${pyHTMLJoined(w.py)}</span><span class="gl">${esc(w.gl)}</span><span class="pill">${w.lv>=7?'HSK 7–9':'HSK '+w.lv}</span></div>
+    $('sxCard').innerHTML=`<div class="sx-word"><span class="w cn" lang="zh-Hans">${[...w.w].map(ch=>`<span class="${ch===c?'from':ch===n?'to':''}">${esc(ch)}</span>`).join('')}</span><span>${pyHTMLJoined(w.py)}</span><span class="gl">${esc(w.gl)}</span><span class="pill">${C.LVNAME(w.lv)}</span></div>
       <button class="btn primary sx-go" type="button" data-hop="${esc(n)}">Hop to <span class="cn" lang="zh-Hans">${esc(n)}</span> →</button>`;
   }
-  function hop(n){
-    const c=cur();const x=(G.out.get(c)||[]).find(v=>v.n===n);if(!x||S.busy)return;
+  function hop(n,typed){
+    const c=cur();const x=typed?{n,w:typed}:(G.out.get(c)||[]).find(v=>v.n===n);if(!x||S.busy)return;
     S.busy=true;
     const before=distT.get(c),after=distT.get(n);
     const go=()=>{
@@ -165,7 +168,7 @@ function init(C){
       save();renderHud();renderTrail();
       if(S.done)renderEnd(true);else{renderActions();drawWeb('burst')}
     };
-    if(reduce||!lastLayout){go();return}
+    if(reduce||!lastLayout||!root.querySelector(`.sx-node[data-n="${CSS.escape(n)}"]`)){go();return}
     const {cx,cy}=lastLayout;
     root.querySelectorAll('.sx-node').forEach(g=>{g.classList.add('mv');g.style.transitionDelay='0ms';
       if(g.dataset.n===n){g.style.transform=`translate(${cx}px,${cy}px) scale(1.6)`;g.classList.add('sel')}else g.style.opacity=0});
@@ -261,8 +264,9 @@ function init(C){
     const node=e.target.closest('.sx-node');
     if(node&&!S.done){const n=node.dataset.n;if(S.sel===n)hop(n);else select(n);return}
     const rt=e.target.closest('[data-route]');if(rt){showRoute(rt.dataset.route);return}
-    const b=e.target.closest('[data-hop],[data-act],[data-tab]');if(!b)return;
+    const b=e.target.closest('[data-hop],[data-typed],[data-act],[data-tab]');if(!b)return;
     if(b.dataset.hop){hop(b.dataset.hop);return}
+    if(b.dataset.typed){hop(b.dataset.typed,C.WORDMAP.get(b.dataset.tw));return}
     if(b.dataset.tab){if(b.dataset.tab!==S.mode)b.dataset.tab==='daily'?start('daily',dayNo*7919+13):start('practice',Math.floor(Math.random()*1e9));return}
     const a=b.dataset.act;
     if(a==='undo'&&S.path.length>1){S.path.pop();S.words.pop();S.fb.pop();S.sel=null;S.hint=null;save();renderHud();renderTrail();renderActions();drawWeb('burst')}
@@ -276,6 +280,20 @@ function init(C){
       const fallback=()=>{const pre=$('sxShareText');const r=document.createRange();r.selectNodeContents(pre);const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected. Copy it now'};
       try{navigator.clipboard.writeText(text).then(done,fallback)}catch(err){fallback()}
       track('six_degrees_share')}
+  });
+  root.addEventListener('submit',e=>{
+    if(e.target.id!=='sxType')return;e.preventDefault();
+    const msg=$('sxTypeMsg'),w=$('sxWord').value.trim().replace(/\s+/g,''),c=cur();if(!w)return;
+    const say=h=>{msg.innerHTML=h};
+    if(!w.includes(c)){say(`That word doesn’t contain <span class="cn" lang="zh-Hans">${esc(c)}</span>.`);return}
+    const o=C.WORDMAP.get(w);
+    if(!o){say('That word isn’t in the dictionary yet.');return}
+    if(o.lv>G.max){say(`That word isn’t in ${esc(levelName(S.level))}. Switch to All words to use it.`);return}
+    const others=[...new Set(w)].filter(ch=>ch!==c&&CH[ch]);
+    if(!others.length){say('There’s no other character in that word to hop to.');return}
+    track('six_degrees_typed',{word:w});
+    if(others.length===1){hop(others[0],o);return}
+    say(`Hop to ${others.map(ch=>`<button type="button" class="btn" data-typed="${esc(ch)}" data-tw="${esc(w)}"><span class="cn" lang="zh-Hans">${esc(ch)}</span></button>`).join(' ')}`);
   });
   root.addEventListener('change',e=>{if(e.target.id==='sxLevel'){practiceLevel=e.target.value==='all'?'all':+e.target.value;store.set('level',practiceLevel);start('practice',Math.floor(Math.random()*1e9))}});
   root.addEventListener('keydown',e=>{const node=e.target.closest&&e.target.closest('.sx-node');if(node&&(e.key==='Enter'||e.key===' ')){e.preventDefault();const n=node.dataset.n;if(S.sel===n)hop(n);else select(n)}});

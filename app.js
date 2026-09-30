@@ -56,6 +56,10 @@ let tt;function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.clas
 let core=null;
 const ready=fetch('/assets/data.json').then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>(core=makeCore(d)));
 window.ZIWANG_READY=ready;
+/* extra (non-HSK) words load quietly after the page is ready */
+let fullP=null;
+function loadFull(){return fullP??=ready.then(c=>fetch('/assets/extra-words.tsv').then(r=>{if(!r.ok)throw 0;return r.text()}).then(tx=>{c.addWords(tx);document.dispatchEvent(new Event('ziwang-extra'));return c}).catch(()=>c))}
+window.ZIWANG_FULL=mode==='game'?loadFull():new Promise(res=>ready.then(()=>setTimeout(()=>loadFull().then(res),1500)));
 ready.catch(()=>toast('The dictionary didn’t load. Check your connection and refresh.'));
 
 /* ---------- speech ---------- */
@@ -291,7 +295,7 @@ function makeExplorer(){
   function click(t){
     if(t.id==='clearTrail'){trail=[cur];store.set('trail',trail);renderTrail();return}
     if(t.dataset.say){speak(t.dataset.say);return}
-    if(t.dataset.lv){maxLv=+t.dataset.lv;store.set('maxLv',maxLv);renderGraph();renderWords();renderFam();return}
+    if(t.dataset.lv){maxLv=+t.dataset.lv;store.set('maxLv',maxLv);renderGraph();renderWords();renderFam();if(maxLv===8)loadFull().then(()=>{renderGraph();renderWords()});return}
     if(t.dataset.more){const k=cur+t.dataset.more;openLv.has(k)?openLv.delete(k):openLv.add(k);renderWords();return}
     if(t.classList.contains('gl')&&t.closest('.quiz'))t.classList.toggle('shown');
   }
@@ -306,6 +310,7 @@ function makeExplorer(){
   });
   let lastW=innerWidth,rw;addEventListener('resize',()=>{if(Math.abs(innerWidth-lastW)<40)return;lastW=innerWidth;clearTimeout(rw);rw=setTimeout(()=>{renderGraph();makeWriter(cur)},200)});
 
+  document.addEventListener('ziwang-extra',()=>{if(cur&&maxLv===8){renderGraph();renderWords()}const qq=$('#q');if(qq&&qq.value.trim()&&!$('#results').hidden)qq.dispatchEvent(new Event('input'))});
   /* start */
   let start=null,hist=false;
   if(mode==='char')start=document.body.dataset.char;

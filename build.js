@@ -13,9 +13,10 @@ const w=(p,s)=>{const f=path.join(OUT,p);fs.mkdirSync(path.dirname(f),{recursive
 
 /* assets */
 const dataStr=JSON.stringify(DATA);const dataV=hash(dataStr);
+const extraStr=fs.readFileSync(path.join(SRC,'extra-words.tsv'),'utf8');const extraV=hash(extraStr);w('assets/extra-words.tsv',extraStr);
 w('assets/data.json',dataStr);
 let appSrc=fs.readFileSync(path.join(SRC,'core.js'),'utf8').replace("if(typeof module!=='undefined')module.exports=makeCore;",'')+'\n'+
-  fs.readFileSync(path.join(SRC,'app.js'),'utf8').replace("'/assets/data.json'",`'/assets/data.json?v=${dataV}'`);
+  fs.readFileSync(path.join(SRC,'app.js'),'utf8').replace("'/assets/data.json'",`'/assets/data.json?v=${dataV}'`).replace("'/assets/extra-words.tsv'",`'/assets/extra-words.tsv?v=${extraV}'`);
 fs.writeFileSync(TMP,appSrc);
 try{appSrc=execSync(`npx terser "${TMP}" -c -m --ecma 2020`,{maxBuffer:1e8,cwd:SRC}).toString()}catch(e){console.warn('terser failed, shipping unminified')}
 const appV=hash(appSrc);w('assets/app.js',appSrc);
@@ -66,7 +67,7 @@ const footer=`
   <nav aria-label="Browse characters by HSK level"><b>Browse characters:</b>${[1,2,3,4,5,6,7].map(l=>` <a href="/hsk/${LVSLUG(l)}/">${LVNAME(l)}</a>`).join('')} <span aria-hidden="true">·</span> <a href="/games/">Games</a></nav>
   <p>Zìwǎng is a free visual dictionary of Chinese characters for Mandarin learners. See how each character is written, what it is built from, which characters share its sound or meaning, and all of the ${nWordsFmt} words from the new HSK 3.0 syllabus that use it.</p>
   <p class="coffee-line" hidden>Zìwǎng is free and has no ads. If it helps you learn, you can <a data-coffee href="#" target="_blank" rel="noopener">buy me a coffee</a>.</p>
-  <p>Word data: <a href="https://github.com/drkameleon/complete-hsk-vocabulary" rel="noopener">complete-hsk-vocabulary</a> (definitions from CC-CEDICT, CC BY-SA 4.0). Character breakdowns and stroke data: <a href="https://github.com/skishore/makemeahanzi" rel="noopener">Make Me a Hanzi</a>, animated with <a href="https://hanziwriter.org" rel="noopener">Hanzi Writer</a>. Audio uses your browser’s built-in Mandarin voice.</p>
+  <p>Word data: <a href="https://github.com/drkameleon/complete-hsk-vocabulary" rel="noopener">complete-hsk-vocabulary</a> (definitions from CC-CEDICT, CC BY-SA 4.0), plus 20,000 more common words from <a href="https://cc-cedict.org" rel="noopener">CC-CEDICT</a>. Frequencies: <a href="https://lingua.mtsu.edu/chinese-computing/" rel="noopener">Jun Da’s character frequency list</a> and the <a href="https://github.com/fxsjy/jieba" rel="noopener">jieba</a> word list. Character breakdowns and stroke data: <a href="https://github.com/skishore/makemeahanzi" rel="noopener">Make Me a Hanzi</a>, animated with <a href="https://hanziwriter.org" rel="noopener">Hanzi Writer</a>. Audio uses your browser’s built-in Mandarin voice.</p>
 </footer>`;
 const explorer=({card,gtitle,wtitle,bar,wlist,fam})=>`
   <nav class="trail" id="trail" aria-label="Characters you have visited"></nav>
@@ -178,14 +179,14 @@ urls.unshift({loc:SITE+'/',pri:'1.0'});
 const hskUrls=[];
 const tabs=cur=>`<nav class="lvtabs" aria-label="HSK levels">${[1,2,3,4,5,6,7].map(l=>`<a href="/hsk/${LVSLUG(l)}/"${l===cur?' aria-current="page"':''}>${LVNAME(l)}</a>`).join('')}</nav>`;
 for(const L of [1,2,3,4,5,6,7]){
-  const list=Object.values(CH).filter(o=>o.lv===L).sort((a,b)=>b.words.length-a.words.length);
+  const list=Object.values(CH).filter(o=>o.lv===L).sort((a,b)=>(a.rank||1e6)-(b.rank||1e6));
   const name=LVNAME(L);
   const desc=`All ${list.length} Chinese characters that first appear in ${name} words, with pinyin and meanings. Open any one for stroke order, parts and the words it builds.`;
   const body=`<main id="main" class="panel listpage">
   <h1>${name} characters</h1>
-  <p>The ${list.length} characters that first appear in ${name} vocabulary (new HSK 3.0 syllabus), ordered by how many HSK words use them. Open any character to see its stroke order, parts and word web.</p>
+  <p>The ${list.length} characters that first appear in ${name} vocabulary (new HSK 3.0 syllabus), ordered from most to least used in written Chinese. Open any character to see its stroke order, parts and word web.</p>
   ${tabs(L)}
-  <ul class="cgrid">${list.map(o=>{const p=C.charPy(o.c);return `<li><a href="${C.path(o.c)}">${zh(o.c)}<b class="t${C.sylTone(p)}">${esc(p)}</b><small>${esc((C.charDef(o.c)||'').split(';')[0])}</small></a></li>`}).join('')}</ul>
+  <ul class="cgrid">${list.map(o=>{const p=C.charPy(o.c);return `<li><a href="${C.path(o.c)}">${zh(o.c)}<b class="t${C.sylTone(p)}">${esc(p)}${C.meter(C.rankBand(o.rank),o.rank?' · #'+o.rank:'')}</b><small>${esc((C.charDef(o.c)||'').split(';')[0])}</small></a></li>`}).join('')}</ul>
 </main>`;
   const url=`/hsk/${LVSLUG(L)}/`;
   w(`hsk/${LVSLUG(L)}/index.html`,page({title:`${name} characters: all ${list.length} with pinyin & meanings | Zìwǎng`,desc,url,mode:'list',body,
@@ -211,7 +212,7 @@ const GAMES=[
    blurb:'Get from one character to another by hopping through words that share them. 火 to 海 takes four hops. A new puzzle every day.',
    title:'Six Degrees of 字: a daily Chinese character puzzle | Zìwǎng',
    desc:'A free daily puzzle for Mandarin learners. Hop from one Chinese character to another through the HSK words they share, in as few steps as you can.',
-   how:`<h2>How to play</h2><p>You start on one character and need to reach another. The characters around you are the ones you can hop to: each shares a word with where you are. Tap one to see the word that links you, then tap it again (or press Hop) to travel there. From ${zhs('火')} you could take ${zhs('火车')} (train) to ${zhs('车')}, then ${zhs('汽车')} (car) to ${zhs('汽')}.</p><p>Par is the fewest hops possible. After each hop you’ll see whether you got closer. A hint picks out a character on the shortest route. The daily puzzle is the same for everyone and uses all words. Random puzzles let you limit the words to the HSK levels you know. When you finish, you can watch a par route to see the shortest way there.</p>`,
+   how:`<h2>How to play</h2><p>You start on one character and need to reach another. The characters around you are the ones you can hop to: each shares a word with where you are. Tap one to see the word that links you, then tap it again (or press Hop) to travel there. From ${zhs('火')} you could take ${zhs('火车')} (train) to ${zhs('车')}, then ${zhs('汽车')} (car) to ${zhs('汽')}.</p><p>Par is the fewest hops possible. After each hop you’ll see whether you got closer. Know a word that isn’t shown? Type it in and hop through it, as long as it’s in the dictionary. A hint picks out a character on the shortest route. The daily puzzle is the same for everyone and uses all words. Random puzzles let you limit the words to the HSK levels you know. When you finish, you can watch a par route to see the shortest way there.</p>`,
    mount:'<div id="six" class="six"></div>'},
   {slug:'radical-drop',script:'drop',name:'Radical Drop',zh:'拼字',py:'pīnzì',tag:'Arcade',preview:dropPreview,
    blurb:'Parts of characters fall from above. Put them side by side or stack them to build real characters before the board fills up.',
@@ -224,7 +225,6 @@ w('games/index.html',page({title:'Games: fun ways to meet Chinese characters | Z
   desc:'Free games built on Chinese characters and HSK words: a daily character-hopping puzzle and a falling-parts arcade game. Play for fun and pick up Chinese along the way.',url:'/games/',mode:'list',
   body:`<main id="main" class="panel listpage gamespage">
   <h1>Games</h1>
-  <p>Small games made from the same characters and words as the rest of Zìwǎng. They’re meant to be played for fun, and you pick up some Chinese along the way.</p>
   <div class="ggrid">
   ${GAMES.map(g=>`<a class="gcard" href="/games/${g.slug}/">
     ${g.preview}

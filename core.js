@@ -1,7 +1,7 @@
 /* Zìwǎng core: pure data + HTML-string rendering. Runs in the browser and at build time (Node). */
 function makeCore(DATA){
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const LVNAME=l=>l>=7?'HSK 7–9':'HSK '+l;
+const LVNAME=l=>l>=8?'Beyond HSK':l>=7?'HSK 7–9':'HSK '+l;
 const LVSLUG=l=>l>=7?'7-9':String(l);
 const HAN=/[\u3400-\u9fff\u2e80-\u2fdf\u31c0-\u31ef]/;
 const zh=(s,cls='cn')=>`<span class="${cls}" lang="zh-Hans">${esc(s)}</span>`;
@@ -15,13 +15,17 @@ const pyHTML=py=>py.split(' ').map(s=>`<span class="t${sylTone(s)}">${esc(s)}</s
 const pyHTMLJoined=py=>py.split(' ').map(s=>`<span class="t${sylTone(s)}">${esc(s)}</span>`).join('');
 
 /* data */
-const WORDS=DATA.w.split('\n').map((l,i)=>{const [w,py,gl,lv]=l.split('\t');
+function parseWord(l,i){const [w,py,gl,lv,fb]=l.split('\t');
   const syl=py.split(' ');const plain=syl.map(sylPlain);
-  return {i,w,py,gl,lv:+lv,syl,key:plain.join('').replace(/ü/g,'v'),nkey:plain.map((p,k)=>p.replace(/ü/g,'v')+sylTone(syl[k])).join(''),glLow:gl.toLowerCase()}});
+  return {i,w,py,gl,lv:+lv,fb:+(fb||0),syl,key:plain.join('').replace(/ü/g,'v'),nkey:plain.map((p,k)=>p.replace(/ü/g,'v')+sylTone(syl[k])).join(''),glLow:gl.toLowerCase()}}
+const WORDS=DATA.w.split('\n').map(parseWord);
 const WORDMAP=new Map(WORDS.map(w=>[w.w,w]));
 const CH={};
-for(const [c,a] of Object.entries(DATA.c))CH[c]={c,py:a[0]?a[0].split(','):[],def:a[1],parts:[...a[2]],rad:a[3],type:a[4],hint:a[5],ph:a[6],se:a[7],strokes:a[8]||0,words:[],kids:[],lv:99};
+for(const [c,a] of Object.entries(DATA.c))CH[c]={c,py:a[0]?a[0].split(','):[],def:a[1],parts:[...a[2]],rad:a[3],type:a[4],hint:a[5],ph:a[6],se:a[7],strokes:a[8]||0,rank:a[9]||0,words:[],kids:[],lv:99};
 for(const w of WORDS)for(const c of new Set(w.w)){const o=CH[c];if(o){o.words.push(w.i);if(w.lv<o.lv)o.lv=w.lv}}
+let extraLoaded=false;
+function addWords(tsv){if(extraLoaded)return;extraLoaded=true;for(const l of tsv.split('\n')){if(!l)continue;const w=parseWord(l,WORDS.length);if(WORDMAP.has(w.w))continue;WORDS.push(w);WORDMAP.set(w.w,w);for(const c of new Set(w.w)){const o=CH[c];if(o)o.words.push(w.i)}}}
+const hskCount=o=>o.words.reduce((n,i)=>n+(WORDS[i].lv<=7),0);
 for(const o of Object.values(CH))for(const p of o.parts)if(CH[p])CH[p].kids.push(o.c);
 const byLv=(a,b)=>CH[a].lv-CH[b].lv||CH[b].words.length-CH[a].words.length;
 for(const o of Object.values(CH))o.kids.sort(byLv);
@@ -31,6 +35,11 @@ function charPy(c){const o=CH[c];if(!o)return '';const w=WORDMAP.get(c);if(w&&w.
 function charDef(c){const o=CH[c];const w=WORDMAP.get(c);if(w&&w.syl.length===1)return w.gl;return o?o.def:''}
 function readings(c){const o=CH[c];if(!o)return [];const w=WORDMAP.get(c);
   const first=(w&&w.syl.length===1)?w.py.toLowerCase():null;return first?[first,...o.py.filter(p=>p.toLowerCase()!==first)]:o.py}
+
+/* frequency */
+const FREQ=['','Rare','Less common','Fairly common','Common','Very common'];
+const meter=(b,extra='')=>b?`<span class="freq f${b}" title="${FREQ[b]}${extra}" aria-label="${FREQ[b]}${extra}"><i></i><i></i><i></i><i></i><i></i></span>`:'';
+const rankBand=r=>!r?0:r<=100?5:r<=500?4:r<=1500?3:r<=3000?2:1;
 
 /* shared bits */
 function charLink(c,cls='chip'){const o=CH[c];const p=o?charPy(c):'';
@@ -76,7 +85,8 @@ function cardHTML(c){
       ${o.strokes?`<span class="pill">${o.strokes} stroke${o.strokes>1?'s':''}</span>`:''}
       ${o.rad&&o.rad!==c?`<span class="pill">Radical ${zh(o.rad)}</span>`:''}
       ${o.type?`<span class="pill">${TYPE[o.type]||esc(o.type)}</span>`:''}
-      <span class="pill">${o.words.length} word${o.words.length===1?'':'s'}</span>
+      ${o.rank?`<span class="pill freqpill" title="Rank among the most-used characters in written Chinese">#${o.rank.toLocaleString('en-US')} most used ${meter(rankBand(o.rank))}</span>`:''}
+      <span class="pill">${hskCount(o)} HSK word${hskCount(o)===1?'':'s'}</span>
     </div>
     ${o.parts.length?`<div class="sect"><h2>Built from</h2><div class="parts">${parts}</div></div>`:''}
     ${story?`<div class="sect"><h2>How it works</h2><p class="story">${story}</p></div>`:''}`;
@@ -85,7 +95,7 @@ function cardHTML(c){
 /* words */
 function wordsHTML(c,{maxLv=7,toneChars=false,openLv=new Set()}={}){
   const o=CH[c];
-  const bar='<span>Show up to</span>'+[1,2,3,4,5,6,7].map(l=>`<button type="button" data-lv="${l}" class="${l===maxLv?'on':''}" aria-pressed="${l===maxLv}">${l===7?'7–9':l}</button>`).join('');
+  const bar='<span>Show up to</span>'+[1,2,3,4,5,6,7,8].map(l=>`<button type="button" data-lv="${l}" class="${l===maxLv?'on':''}" aria-pressed="${l===maxLv}"${l===8?' title="Add common words that aren’t on the HSK lists"':''}>${l===8?'+ more':l===7?'7–9':l}</button>`).join('');
   const list=o?o.words.map(i=>WORDS[i]).filter(w=>w.lv<=maxLv):[];
   let body;
   if(!list.length){body=`<p class="empty">${o&&o.words.length?`No words at ${LVNAME(maxLv)} or below.`:`${zh(c)} doesn’t appear in any HSK word on its own. It works as a building block inside other characters.`}</p>`}
@@ -96,7 +106,7 @@ function wordsHTML(c,{maxLv=7,toneChars=false,openLv=new Set()}={}){
       return `<div class="lvgroup"><h3>${LVNAME(+lv)} · ${g.length}</h3>${shown.map(w=>{
         const cw=colorWord(w.w,w,toneChars);
         return `<div class="wrow" data-w="${esc(w.w)}"><div class="w" lang="zh-Hans">${cw.map(({ch,cls})=>CH[ch]&&ch!==c?`<a href="${path(ch)}" data-go="${esc(ch)}" class="${cls}">${esc(ch)}</a>`:`<span class="me ${cls}">${esc(ch)}</span>`).join('')}</div>
-        <div class="py">${pyHTMLJoined(w.py)}</div><div class="gl">${esc(w.gl)}</div>
+        <div class="py">${pyHTMLJoined(w.py)}</div><div class="gl">${esc(w.gl)}</div>${meter(w.fb)||'<span class="freq"></span>'}
         <button type="button" class="spk" data-say="${esc(w.w)}" aria-label="Hear ${esc(w.w)}">${SPK}</button></div>`}).join('')}
         ${g.length>LIM?`<button type="button" class="linkbtn more" data-more="${lv}">${open?'Show fewer':`Show all ${g.length}`}</button>`:''}</div>`}).join('');
   }
@@ -128,7 +138,7 @@ function metaFor(c){
   let desc=`${c} ${py?`(${py}) `:''}means “${def.split(';').slice(0,2).join(';').trim()}”. `+
     (o&&o.lv<=7?`${LVNAME(o.lv)}. `:'')+
     `See its stroke order${o&&o.parts.length?`, parts (${o.parts.join(' + ')})`:''}`+
-    (o&&o.words.length?` and ${o.words.length} words that use it${top.length?`, like ${top.join(', ')}`:''}.`:'.');
+    (o&&hskCount(o)?` and ${hskCount(o)} HSK words that use it${top.length?`, like ${top.join(', ')}`:''}.`:'.');
   if(desc.length>158)desc=desc.slice(0,155).replace(/[\s,;]+\S*$/,'')+'…';
   return {title,desc};
 }
@@ -168,7 +178,7 @@ function resultsHTML(q,r){
     (!r.chars.length&&!r.words.length?`<p class="empty">Nothing matched “${esc(q)}”. Try a character, pinyin like <b>dian</b> or <b>dian4</b>, or an English word.</p>`:'');
 }
 
-return {esc,zh,path,LVNAME,LVSLUG,HAN,sylTone,sylPlain,pyHTML,pyHTMLJoined,WORDS,WORDMAP,CH,byLv,charPy,charDef,readings,
+return {addWords,meter,rankBand,FREQ,hskCount,extraLoaded:()=>extraLoaded,esc,zh,path,LVNAME,LVSLUG,HAN,sylTone,sylPlain,pyHTML,pyHTMLJoined,WORDS,WORDMAP,CH,byLv,charPy,charDef,readings,
   charLink,colorWord,cardHTML,wordsHTML,famHTML,metaFor,search,resultsHTML,SPK};
 }
 if(typeof module!=='undefined')module.exports=makeCore;
