@@ -16,8 +16,10 @@ const pyHTMLJoined=py=>py.split(' ').map(s=>`<span class="t${sylTone(s)}">${esc(
 
 /* data */
 function parseWord(l,i){const [w,py,gl,lv,fb]=l.split('\t');
-  const syl=py.split(' ');const plain=syl.map(sylPlain);
-  return {i,w,py,gl,lv:+lv,fb:+(fb||0),syl,key:plain.join('').replace(/ü/g,'v'),nkey:plain.map((p,k)=>p.replace(/ü/g,'v')+sylTone(syl[k])).join(''),glLow:gl.toLowerCase()}}
+  return {i,w,py,gl,lv:+lv,fb:+(fb||0),syl:py.split(' ')}}
+let indexed=0; // search keys are built the first time someone searches
+function ensureIndex(){for(;indexed<WORDS.length;indexed++){const w=WORDS[indexed];const plain=w.syl.map(sylPlain);
+  w.key=plain.join('').replace(/ü/g,'v');w.nkey=plain.map((p,k)=>p.replace(/ü/g,'v')+sylTone(w.syl[k])).join('');w.glLow=w.gl.toLowerCase()}}
 const WORDS=DATA.w.split('\n').map(parseWord);
 const WORDMAP=new Map(WORDS.map(w=>[w.w,w]));
 const CH={};
@@ -38,7 +40,7 @@ function readings(c){const o=CH[c];if(!o)return [];const w=WORDMAP.get(c);
 
 /* frequency */
 const FREQ=['','Rare','Less common','Fairly common','Common','Very common'];
-const meter=(b,extra='')=>b?`<span class="freq f${b}" title="${FREQ[b]}${extra}" aria-label="${FREQ[b]}${extra}"><i></i><i></i><i></i><i></i><i></i></span>`:'';
+const meter=(b,extra='')=>b?`<span class="freq f${b}" role="img" title="${FREQ[b]}${extra}" aria-label="${FREQ[b]}${extra}"><i></i><i></i><i></i><i></i><i></i></span>`:'';
 const rankBand=r=>!r?0:r<=100?5:r<=500?4:r<=1500?3:r<=3000?2:1;
 
 /* shared bits */
@@ -107,7 +109,7 @@ function wordsHTML(c,{maxLv=7,toneChars=false,openLv=new Set()}={}){
         const cw=colorWord(w.w,w,toneChars);
         return `<div class="wrow" data-w="${esc(w.w)}"><div class="w" lang="zh-Hans">${cw.map(({ch,cls})=>CH[ch]&&ch!==c?`<a href="${path(ch)}" data-go="${esc(ch)}" class="${cls}">${esc(ch)}</a>`:`<span class="me ${cls}">${esc(ch)}</span>`).join('')}</div>
         <div class="py">${pyHTMLJoined(w.py)}</div><div class="gl">${esc(w.gl)}</div>${meter(w.fb)||'<span class="freq"></span>'}
-        <button type="button" class="spk" data-say="${esc(w.w)}" aria-label="Hear ${esc(w.w)}">${SPK}</button></div>`}).join('')}
+        <span class="wact"><a class="ico ctx" rel="nofollow" href="/map/?q=${encodeURIComponent(w.w)}" title="View in context" aria-label="View ${esc(w.w)} in the character network"></a><button type="button" class="ico spk" data-say="${esc(w.w)}" title="Listen" aria-label="Hear ${esc(w.w)}"></button></span></div>`}).join('')}
         ${g.length>LIM?`<button type="button" class="linkbtn more" data-more="${lv}">${open?'Show fewer':`Show all ${g.length}`}</button>`:''}</div>`}).join('');
   }
   return {title:`Words with ${zh(c)}`,bar,body};
@@ -118,12 +120,12 @@ function famHTML(c,{maxLv=7}={}){
   const o=CH[c];const secs=[];
   if(o){
     const kids=o.kids.filter(k=>CH[k].lv<=maxLv).slice(0,30);
-    if(kids.length)secs.push(`<div class="sect"><h2>Found inside</h2><p class="why">Characters that use ${zh(c)} as a part.</p><div class="chips">${kids.map(k=>charLink(k)).join('')}</div></div>`);
+    if(kids.length)secs.push(`<div class="sect"><h2>Found inside</h2><div class="chips">${kids.map(k=>charLink(k)).join('')}</div></div>`);
     if(o.ph){const f=(phonFam[o.ph]||[]).filter(x=>x!==c&&CH[x].lv<=maxLv).sort(byLv).slice(0,24);
-      if(f.length)secs.push(`<div class="sect"><h2>Sound family · ${zh(o.ph)}</h2><p class="why">These share the sound part ${zh(o.ph)}${CH[o.ph]&&CH[o.ph].py[0]?` (${esc(CH[o.ph].py[0])})`:''}. Compare how close their readings are.</p><div class="chips">${f.map(k=>charLink(k)).join('')}</div></div>`)}
+      if(f.length)secs.push(`<div class="sect"><h2>Sound family · ${zh(o.ph)}</h2><p class="why">Same sound part${CH[o.ph]&&CH[o.ph].py[0]?`, ${esc(CH[o.ph].py[0])}`:''}.</p><div class="chips">${f.map(k=>charLink(k)).join('')}</div></div>`)}
     const sk=o.se||(o.rad&&o.rad!==c?o.rad:'');
     if(sk){const f=(semFam[sk]||Object.values(CH).filter(x=>x.rad===sk&&x.lv<=7).map(x=>x.c)).filter(x=>x!==c&&CH[x].lv<=maxLv).sort(byLv).slice(0,24);
-      if(f.length)secs.push(`<div class="sect"><h2>Meaning family · ${zh(sk)}</h2><p class="why">These share the part ${zh(sk)}${CH[sk]?` (${esc((CH[sk].def||'').split(/[;,]/)[0])})`:''}, which often signals a related meaning.</p><div class="chips">${f.map(k=>charLink(k)).join('')}</div></div>`)}
+      if(f.length)secs.push(`<div class="sect"><h2>Meaning family · ${zh(sk)}</h2><p class="why">Same meaning part${CH[sk]?`, “${esc((CH[sk].def||'').split(/[;,]/)[0])}”`:''}.</p><div class="chips">${f.map(k=>charLink(k)).join('')}</div></div>`)}
   }
   if(!secs.length)secs.push(`<p class="empty">No close relatives found at this level. Try raising the HSK level.</p>`);
   return secs.join('');
@@ -139,13 +141,13 @@ function metaFor(c){
     (o&&o.lv<=7?`${LVNAME(o.lv)}. `:'')+
     `See its stroke order${o&&o.parts.length?`, parts (${o.parts.join(' + ')})`:''}`+
     (o&&hskCount(o)?` and ${hskCount(o)} HSK words that use it${top.length?`, like ${top.join(', ')}`:''}.`:'.');
-  if(desc.length>158)desc=desc.slice(0,155).replace(/[\s,;]+\S*$/,'')+'…';
+  if(desc.length>150)desc=[...desc].slice(0,147).join('').replace(/[\s,;(]+\S*$/,'')+'…';
   return {title,desc};
 }
 
 /* search */
 function search(q){
-  q=q.trim();if(!q)return null;
+  q=q.trim();if(!q)return null;ensureIndex();
   const chars=[],words=[];
   if(HAN.test(q)){
     for(const ch of new Set([...q].filter(ch=>HAN.test(ch))))if(CH[ch])chars.push(ch);

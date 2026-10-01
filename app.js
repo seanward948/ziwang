@@ -54,13 +54,16 @@ let tt;function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.clas
 
 /* ---------- data ---------- */
 let core=null;
-const ready=fetch('/assets/data.json').then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>(core=makeCore(d)));
-window.ZIWANG_READY=ready;
+let readyP=null;
+function getReady(){return readyP??=fetch('/assets/data.json').then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>(core=makeCore(d)))}
+// pages that need the dictionary straight away load it now; list pages wait until someone searches
+const ready={then:(a,b)=>getReady().then(a,b),catch:f=>getReady().catch(f)};
+if(mode!=='list')getReady().catch(()=>toast('The dictionary didn’t load. Check your connection and refresh.'));
+if(mode!=='list')window.ZIWANG_READY=getReady();
 /* extra (non-HSK) words load quietly after the page is ready */
 let fullP=null;
 function loadFull(){return fullP??=ready.then(c=>fetch('/assets/extra-words.tsv').then(r=>{if(!r.ok)throw 0;return r.text()}).then(tx=>{c.addWords(tx);document.dispatchEvent(new Event('ziwang-extra'));return c}).catch(()=>c))}
-window.ZIWANG_FULL=mode==='game'?loadFull():new Promise(res=>ready.then(()=>setTimeout(()=>loadFull().then(res),1500)));
-ready.catch(()=>toast('The dictionary didn’t load. Check your connection and refresh.'));
+window.ZIWANG_LOAD_FULL=loadFull; // extra words load only when something asks for them
 
 /* ---------- speech ---------- */
 let zhVoice=null;
@@ -107,7 +110,7 @@ function openWord(w){closeResults();const first=[...w].find(ch=>core&&core.CH[ch
   if(explorer)explorer.go(first,{flashWord:w});else location.href=core.path(first)}
 if(q){
   q.addEventListener('input',showResults);
-  q.addEventListener('focus',()=>{if(q.value.trim())showResults()});
+  q.addEventListener('focus',()=>{getReady();loadFull();if(q.value.trim())showResults()},{passive:true});
   q.addEventListener('keydown',e=>{
     const rows=[...resBox.querySelectorAll('.rword')];
     if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(!rows.length)return;sel=(sel+(e.key==='ArrowDown'?1:-1)+rows.length)%rows.length;rows.forEach((r,i)=>r.classList.toggle('sel',i===sel));rows[sel].scrollIntoView({block:'nearest'})}
@@ -180,8 +183,10 @@ function makeExplorer(){
   }
   document.addEventListener('skinchange',()=>{if(cur)makeWriter(cur)});
 
+  let firstPaint=true; // the page arrives with this character already rendered, so keep what's on screen
   function renderCard(){
-    $('#card').innerHTML=C.cardHTML(cur);
+    const card=$('#card');const oldTzg=card.querySelector('.tzg');const keep=firstPaint&&$('#fallback')&&$('#fallback').textContent===cur;
+    if(!(firstPaint&&mode==='char'&&$('#anim'))){card.innerHTML=C.cardHTML(cur);if(keep&&oldTzg){const t=card.querySelector('.tzg');t.replaceWith(oldTzg);if(!oldTzg.querySelector('#writer')){const w=document.createElement('div');w.id='writer';oldTzg.appendChild(w)}}}
     makeWriter(cur);
     $('#anim').onclick=()=>{if(writer){writer.cancelQuiz?.();writer.showCharacter();writer.animateCharacter();track('animate_strokes',{character:cur})}};
     $('#practice').onclick=()=>{if(!writer)return;toast('Trace each stroke in order. A hint appears after 2 misses.');track('practice_writing',{character:cur});
@@ -205,7 +210,7 @@ function makeExplorer(){
   const NS='http://www.w3.org/2000/svg';
   function el(tag,attrs={},parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
   function renderGraph(){
-    const svg=$('#graph');svg.innerHTML='';
+    const svg=$('#graph');svg.innerHTML='';const cb=$('#ctxBtn');if(cb)cb.href='/map/?q='+encodeURIComponent(cur);const nl=document.querySelector('.netlink');if(nl)nl.href='/map/?q='+encodeURIComponent(cur);
     const c=cur,o=CH[c];
     const W=svg.clientWidth||svg.parentNode.clientWidth||700;
     const narrow=W<560;
@@ -238,7 +243,7 @@ function makeExplorer(){
         const b=a+(j-(others.length-1)/2)*spread;p.sx+=Math.cos(b);p.sy+=Math.sin(b);
         const L2=el('line',{x1:x,y1:y,class:'gline out fade'},gl);lineEls.push(L2);outs.push(L2);p.lines.push(L2);
       });
-      const g=el('g',{class:'gnode gword',tabindex:0,role:'button','aria-label':`${w.w} ${w.py}: ${w.gl}`},gn);
+      const g=el('g',{class:'gnode gword',tabindex:0,role:'button'},gn);el('title',{},g).textContent=`${w.w} ${w.py}: ${w.gl}`;
       const fs=narrow?18:21;const tw=Math.max([...w.w].length*fs+18,50);
       el('rect',{class:'bg',x:-tw/2,y:-22,width:tw,height:44,rx:10},g);
       const t=el('text',{class:'w','text-anchor':'middle',y:3,'font-size':fs},g);
@@ -288,7 +293,8 @@ function makeExplorer(){
     const first=cur===null;cur=c;
     if(push){trail=trail.filter(x=>x!==c);trail.push(c);trail=trail.slice(-24);store.set('trail',trail)}
     if(hist){setMeta(c);const p=C.path(c);if(decodeURIComponent(location.pathname)!==decodeURIComponent(p))history.pushState({c},'',p)}
-    renderCard();renderGraph();renderWords();renderFam();renderTrail();
+    const fresh=firstPaint&&mode==='char'&&maxLv===7&&!toneChars;
+    renderCard();renderGraph();if(!fresh){renderWords();renderFam()}else{$('#wordsPanel').classList.toggle('quiz',quiz);$('#quizbtn').classList.toggle('on',quiz)}renderTrail();firstPaint=false;
     if(!first)track('select_character',{character:c});
     if(flashWord){const r=document.querySelector(`.wrow[data-w="${CSS.escape(flashWord)}"]`);if(r){r.scrollIntoView({block:'center',behavior:'smooth'});r.classList.add('flash')}}
   }

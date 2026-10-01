@@ -8,7 +8,7 @@ const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const NS='http://www.w3.org/2000/svg';
 const K=20; // neighbours shown around each character
 root.innerHTML='<p class="g-loading">Loading the word web…</p>';
-(window.ZIWANG_FULL||window.ZIWANG_READY||Promise.reject()).then(init).catch(()=>{root.innerHTML='<p class="g-loading">The dictionary didn’t load. Check your connection and refresh.</p>'});
+(window.ZIWANG_LOAD_FULL?window.ZIWANG_LOAD_FULL():window.ZIWANG_FULL||window.ZIWANG_READY||Promise.reject()).then(init).catch(()=>{root.innerHTML='<p class="g-loading">The dictionary didn’t load. Check your connection and refresh.</p>'});
 
 function init(C){
   const {CH,WORDS,esc,pyHTML,pyHTMLJoined,charPy,charDef,path,sylTone}=C;
