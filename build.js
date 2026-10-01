@@ -40,8 +40,36 @@ let nStroke=0;
 for(const c of Object.keys(CH)){const f=path.join(PKG,c+'.json');if(fs.existsSync(f)){w(`s/${c.codePointAt(0).toString(16)}.json`,JSON.stringify(JSON.parse(fs.readFileSync(f,'utf8'))));nStroke++}}
 
 /* templates */
-const FONTS='https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Schibsted+Grotesk:wght@400;600;700&display=swap';
-const LOGOFONT='https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&text=%E5%AD%97%E7%BD%91&display=swap';
+/* the coffee link is written into each page at build time, so the header doesn't jump when it appears */
+const COFFEE=(()=>{const m=fs.readFileSync(path.join(SRC,'config.js'),'utf8').match(/coffeeUrl\s*:\s*["']([^"']*)["']/);const u=m?m[1].trim():'';
+  return /^https:\/\/(www\.)?(buymeacoffee\.com|coff\.ee)\/[A-Za-z0-9_.-]+\/?$/.test(u)&&!/yourname/i.test(u)?u:''})();
+const coffeeAttr=COFFEE?`href="${COFFEE}"`:'href="#" hidden';
+/* fonts and d3 are served from this site, so visitors' browsers don't contact Google or a CDN */
+const FONTPKG=path.join(__dirname,'node_modules','@fontsource');
+const fontFiles=new Set();let fontCSS='';let bodyFont='';
+function addFonts(pkg,css,keep=()=>true){
+  const src=fs.readFileSync(path.join(FONTPKG,pkg,css),'utf8');
+  for(const rule of src.match(/@font-face\s*\{[^}]*\}/g)){
+    const f=(rule.match(/url\(\.\/files\/([^)]+\.woff2)\)/)||[])[1];if(!f||!keep(rule))continue;
+    fontFiles.add(pkg+'/'+f);
+    fontCSS+=rule.replace(/src:[^;]*;/,`src:url(/assets/fonts/${f}) format('woff2');`).replace(/\s*\n\s*/g,'')+'\n';
+  }
+}
+const covers=(rule,cp)=>{const r=(rule.match(/unicode-range:([^;]+)/)||[])[1];if(!r)return false;
+  return r.split(',').some(x=>{const [a,b]=x.trim().replace(/^U\+/i,'').split('-').map(h=>parseInt(h,16));return cp>=a&&cp<=(b??a)})};
+addFonts('schibsted-grotesk','400.css');addFonts('schibsted-grotesk','600.css');addFonts('schibsted-grotesk','700.css');
+// only the Noto Serif SC slices that contain a character the site actually shows
+const siteCps=new Set();for(const t of [fs.readFileSync(path.join(SRC,'data.json'),'utf8'),fs.readFileSync(path.join(SRC,'extra-words.tsv'),'utf8')])for(const ch of t){const cp=ch.codePointAt(0);if(cp>=0x2e80)siteCps.add(cp)}
+const usedSlice=rule=>{for(const cp of siteCps)if(covers(rule,cp))return true;return false};
+addFonts('noto-serif-sc','400.css',usedSlice);addFonts('noto-serif-sc','600.css',usedSlice);
+addFonts('ma-shan-zheng','400.css',rule=>[...'字网'].some(c=>covers(rule,c.codePointAt(0)))); // the logo only uses 字网
+fs.mkdirSync(path.join(OUT,'assets','fonts'),{recursive:true});
+for(const f of fontFiles)fs.copyFileSync(path.join(FONTPKG,...f.replace('/','/files/').split('/')),path.join(OUT,'assets','fonts',path.basename(f)));
+bodyFont=[...fontFiles].find(f=>/schibsted-grotesk-latin-400-normal/.test(f));
+const fontsV=hash(fontCSS);w('assets/fonts.css',fontCSS);
+fs.mkdirSync(path.join(OUT,'licenses'),{recursive:true});
+for(const p of ['noto-serif-sc','schibsted-grotesk','ma-shan-zheng'])fs.copyFileSync(path.join(FONTPKG,p,'LICENSE'),path.join(OUT,'licenses',`OFL-${p}.txt`));
+fs.copyFileSync(path.join(__dirname,'node_modules','d3','dist','d3.min.js'),path.join(OUT,'assets','d3.min.js'));
 const ICON={
   search:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   wander:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>',
@@ -62,15 +90,16 @@ const header=(isHome,char)=>`
     <div class="themepick"><button class="btn icon" id="themeBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="themes">${ICON.palette}<span class="lbl">Theme</span></button><div class="themes" id="themes" role="menu" aria-label="Themes" hidden></div></div>
     <a class="btn netlink" href="/map/${char?`?q=${encodeURIComponent(char)}`:''}"${char?' rel="nofollow"':''}>${ICON.net}<span class="lbl">Network</span></a>
     <a class="btn games" href="/games/">${ICON.games}<span class="lbl">Games</span></a>
-    <a class="btn coffee" data-coffee href="#" target="_blank" rel="noopener" hidden>${ICON.cup}<span class="lbl">Buy me a coffee</span></a>
+    <a class="btn coffee" data-coffee ${coffeeAttr} target="_blank" rel="noopener">${ICON.cup}<span class="lbl">Buy me a coffee</span></a>
   </div>
 </header>`;
 const nWordsFmt=WORDS.length.toLocaleString('en-US');
 const footer=`
 <footer class="foot">
   <nav aria-label="Browse characters by HSK level"><b>Browse:</b>${[1,2,3,4,5,6,7].map(l=>` <a href="/hsk/${LVSLUG(l)}/">${LVNAME(l)}</a>`).join('')} <span aria-hidden="true">·</span> <a href="/map/">Network</a> <span aria-hidden="true">·</span> <a href="/games/">Games</a></nav>
-  <p class="coffee-line" hidden>Free and ad-free. <a data-coffee href="#" target="_blank" rel="noopener">Buy me a coffee</a> if it helps.</p>
-  <p>Data: <a href="https://github.com/drkameleon/complete-hsk-vocabulary" rel="noopener">HSK lists</a>, <a href="https://cc-cedict.org" rel="noopener">CC-CEDICT</a> (CC BY-SA 4.0), <a href="https://github.com/skishore/makemeahanzi" rel="noopener">Make Me a Hanzi</a>, <a href="https://lingua.mtsu.edu/chinese-computing/" rel="noopener">Jun Da</a> and <a href="https://github.com/fxsjy/jieba" rel="noopener">jieba</a> frequencies. Strokes drawn with <a href="https://hanziwriter.org" rel="noopener">Hanzi Writer</a>.</p>
+  <p>Privacy: no accounts, no cookies. Your settings stay in your browser, and visits are counted with <a href="https://www.cloudflare.com/web-analytics/" rel="noopener">Cloudflare Web Analytics</a>, which doesn’t track you across sites.</p>
+  <p class="coffee-line"${COFFEE?'':' hidden'}>Free and ad-free. <a data-coffee href="${COFFEE||'#'}" target="_blank" rel="noopener">Buy me a coffee</a> if it helps.</p>
+  <p>Data: <a href="https://github.com/drkameleon/complete-hsk-vocabulary" rel="noopener">HSK lists</a>, <a href="https://cc-cedict.org" rel="noopener">CC-CEDICT</a> (CC BY-SA 4.0), <a href="https://github.com/skishore/makemeahanzi" rel="noopener">Make Me a Hanzi</a>, <a href="https://www.dong-chinese.com" rel="noopener">Dong Chinese</a>, <a href="https://lingua.mtsu.edu/chinese-computing/" rel="noopener">Jun Da</a> and <a href="https://github.com/fxsjy/jieba" rel="noopener">jieba</a> frequencies. Strokes drawn with <a href="https://hanziwriter.org" rel="noopener">Hanzi Writer</a>.</p>
 </footer>`;
 const explorer=({card,gtitle,wtitle,bar,wlist,fam,char})=>`
   <nav class="trail" id="trail" aria-label="Characters you have visited"></nav>
@@ -118,14 +147,12 @@ ${noindex?'<meta name="robots" content="noindex,follow">\n':''}<meta name="theme
 <meta property="og:image:alt" content="Zìwǎng 字网: explore Chinese characters as a web of words">
 <meta name="twitter:card" content="summary_large_image">
 <script>try{var s=JSON.parse(localStorage.getItem('ziwang.skin'));if(s&&s!=='auto')document.documentElement.dataset.skin=s}catch(e){}</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="${FONTS}" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="${LOGOFONT}" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="${FONTS}"><link rel="stylesheet" href="${LOGOFONT}"></noscript>
+<link rel="preload" href="/assets/fonts/${path.basename(bodyFont)}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/fonts.css?v=${fontsV}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="/assets/fonts.css?v=${fontsV}"></noscript>
 <link rel="stylesheet" href="/assets/style.css?v=${cssV}">${scripts.length||url.startsWith('/games')?`\n<link rel="stylesheet" href="/assets/games.css?v=${gcssV}">`:''}
 <script src="/assets/config.js" defer></script>
-${explorerMode?'<script src="/assets/hanzi-writer.min.js" defer></script>\n':''}${scripts.includes('map')?'<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" defer></script>\n':''}<script src="/assets/app.js?v=${appV}" defer></script>${scripts.map(s=>`\n<script src="/assets/games/${s}.js?v=${gameV[s]}" defer></script>`).join('')}
+${explorerMode?'<script src="/assets/hanzi-writer.min.js" defer></script>\n':''}${scripts.includes('map')?'<script src="/assets/d3.min.js?v=7.9.0" defer></script>\n':''}<script src="/assets/app.js?v=${appV}" defer></script>${scripts.map(s=>`\n<script src="/assets/games/${s}.js?v=${gameV[s]}" defer></script>`).join('')}
 ${jsonld.map(j=>`<script type="application/ld+json">${JSON.stringify(j).replace(/</g,'\\u003c')}</script>`).join('\n')}
 </head>
 <body data-mode="${mode}"${char?` data-char="${esc(char)}"`:''}>

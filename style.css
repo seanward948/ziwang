@@ -271,3 +271,6 @@ footer.foot a{color:var(--ink-2)}
 .freqpill{display:inline-flex;align-items:center;gap:6px}
 .cgrid b .freq{margin-left:6px}
 @media (max-width:900px){body[data-mode="home"] .card{min-height:690px}}
+.sect h2 .sect-link{float:right;text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none}
+.sect h2 .sect-link:hover{text-decoration:underline}
+.role.picture{background:color-mix(in srgb,var(--t3) 22%,var(--panel));color:var(--ink)}

@@ -1,8 +1,14 @@
 {
   "name": "ziwang",
   "private": true,
-  "scripts": { "build": "node build.js" },
+  "scripts": {
+    "build": "node build.js"
+  },
   "devDependencies": {
+    "@fontsource/ma-shan-zheng": "5.3.1",
+    "@fontsource/noto-serif-sc": "5.3.0",
+    "@fontsource/schibsted-grotesk": "5.3.0",
+    "d3": "7.9.0",
     "hanzi-writer": "3.7.3",
     "hanzi-writer-data": "2.0.1",
     "terser": "5.36.0"

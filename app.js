@@ -7,19 +7,15 @@ const store={get(k,d){try{const v=localStorage.getItem('ziwang.'+k);return v==nu
   set(k,v){try{localStorage.setItem('ziwang.'+k,JSON.stringify(v))}catch(e){}}};
 const mode=document.body.dataset.mode||'list';
 
-/* ---------- analytics (Google Analytics 4) ---------- */
-function track(name,params){try{if(window.gtag)window.gtag('event',name,params||{})}catch(e){}}
-if(cfg.gaId&&/^G-[A-Z0-9]{4,}$/.test(cfg.gaId)&&!/X{4,}/.test(cfg.gaId)){
-  window.dataLayer=window.dataLayer||[];
-  window.gtag=function(){window.dataLayer.push(arguments)};
-  window.gtag('js',new Date());window.gtag('config',cfg.gaId);
-  const s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id='+encodeURIComponent(cfg.gaId);document.head.appendChild(s);
-}
+/* ---------- analytics: Cloudflare Web Analytics (cookieless, nothing personal stored) ---------- */
+const cft=String(cfg.cfToken||'').trim();
+if(/^[A-Za-z0-9]{20,64}$/.test(cft)){const s=document.createElement('script');s.defer=true;s.src='https://static.cloudflareinsights.com/beacon.min.js';
+  s.setAttribute('data-cf-beacon',JSON.stringify({token:cft,spa:true}));document.head.appendChild(s)}
 
 /* ---------- Buy Me a Coffee ---------- */
 const cu=String(cfg.coffeeUrl||'');
 if(/^https:\/\/(www\.)?(buymeacoffee\.com|coff\.ee)\/[A-Za-z0-9_.-]+\/?$/.test(cu)&&!/yourname/i.test(cu)){
-  document.querySelectorAll('[data-coffee]').forEach(a=>{a.href=cu;a.hidden=false;a.addEventListener('click',()=>track('coffee_click'))});
+  document.querySelectorAll('[data-coffee]').forEach(a=>{a.href=cu;a.hidden=false;});
   document.querySelectorAll('.coffee-line').forEach(p=>p.hidden=false);
 }
 
@@ -36,7 +32,7 @@ const themeMenu=$('#themes'),themeBtn=$('#themeBtn');
 function paintThemeMeta(){const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=getComputedStyle(root).getPropertyValue('--paper').trim()}
 function applySkin(s,user){skin=s;if(s==='auto')delete root.dataset.skin;else root.dataset.skin=s;store.set('skin',s);
   if(themeMenu)themeMenu.querySelectorAll('[data-skin]').forEach(b=>b.setAttribute('aria-checked',b.dataset.skin===s));
-  paintThemeMeta();if(user)track('theme_change',{theme:s});document.dispatchEvent(new Event('skinchange'))}
+  paintThemeMeta();document.dispatchEvent(new Event('skinchange'))}
 if(themeMenu){
   themeMenu.innerHTML=SKINS.map(([k,zh,en,desc])=>`<button type="button" role="menuitemradio" data-skin="${k}" aria-checked="${k===skin}">
     <span class="sw sw-${k}" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -71,7 +67,7 @@ function pickVoice(){try{const v=speechSynthesis.getVoices();zhVoice=v.find(x=>/
 try{pickVoice();speechSynthesis.onvoiceschanged=pickVoice}catch(e){}
 function speak(t){try{if(!('speechSynthesis' in window))throw 0;pickVoice();
   if(!zhVoice){toast('No Mandarin voice is installed in this browser, so audio is unavailable.');return}
-  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.voice=zhVoice;u.lang=zhVoice.lang;u.rate=.8;speechSynthesis.speak(u);track('play_audio',{text:t})}
+  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.voice=zhVoice;u.lang=zhVoice.lang;u.rate=.8;speechSynthesis.speak(u);}
   catch(e){toast('Audio isn’t available in this browser.')}}
 
 /* ---------- search ---------- */
@@ -98,13 +94,12 @@ function speak(t){try{if(!('speechSynthesis' in window))throw 0;pickVoice();
   document.addEventListener('visibilitychange',()=>{clearTimeout(t);if(!document.hidden)t=setTimeout(cycle,800)});
 })();
 
-const q=$('#q'),resBox=$('#results');let sel=-1,searchTimer;
+const q=$('#q'),resBox=$('#results');let sel=-1;
 function closeResults(){if(resBox)resBox.hidden=true}
 function showResults(){
   const v=q.value;if(!v.trim()){closeResults();return}
   if(!core){resBox.innerHTML='<p class="empty">Loading the dictionary…</p>';resBox.hidden=false;ready.then(showResults);return}
   const r=core.search(v);sel=-1;resBox.innerHTML=core.resultsHTML(v,r);resBox.hidden=false;
-  clearTimeout(searchTimer);searchTimer=setTimeout(()=>track('search',{search_term:v.trim()}),1200);
 }
 function openWord(w){closeResults();const first=[...w].find(ch=>core&&core.CH[ch]);if(!first)return;
   if(explorer)explorer.go(first,{flashWord:w});else location.href=core.path(first)}
@@ -119,7 +114,7 @@ if(q){
       else{const han=[...v].filter(ch=>core.HAN.test(ch));
         if(han.length===1&&core.CH[han[0]])goChar(han[0]);
         else{const f=resBox.querySelector('[data-go],.rword');if(f)f.click()}}
-      track('search',{search_term:v});q.blur()}
+      q.blur()}
     else if(e.key==='Escape'){closeResults();q.blur()}
   });
 }
@@ -127,7 +122,7 @@ function goChar(c){closeResults();if(q)q.value='';if(explorer)explorer.go(c);els
 
 /* ---------- wander ---------- */
 function wanderPool(){return Object.values(core.CH).filter(o=>o.lv<=3&&o.words.length>=3).map(o=>o.c)}
-$('#wander')?.addEventListener('click',()=>ready.then(()=>{const p=wanderPool();let c;do{c=p[Math.floor(Math.random()*p.length)]}while(explorer&&c===explorer.cur()&&p.length>1);track('wander');goChar(c)}));
+$('#wander')?.addEventListener('click',()=>ready.then(()=>{const p=wanderPool();let c;do{c=p[Math.floor(Math.random()*p.length)]}while(explorer&&c===explorer.cur()&&p.length>1);goChar(c)}));
 
 /* ---------- games gallery previews ---------- */
 (function(){
@@ -188,9 +183,9 @@ function makeExplorer(){
     const card=$('#card');const oldTzg=card.querySelector('.tzg');const keep=firstPaint&&$('#fallback')&&$('#fallback').textContent===cur;
     if(!(firstPaint&&mode==='char'&&$('#anim'))){card.innerHTML=C.cardHTML(cur);if(keep&&oldTzg){const t=card.querySelector('.tzg');t.replaceWith(oldTzg);if(!oldTzg.querySelector('#writer')){const w=document.createElement('div');w.id='writer';oldTzg.appendChild(w)}}}
     makeWriter(cur);
-    $('#anim').onclick=()=>{if(writer){writer.cancelQuiz?.();writer.showCharacter();writer.animateCharacter();track('animate_strokes',{character:cur})}};
-    $('#practice').onclick=()=>{if(!writer)return;toast('Trace each stroke in order. A hint appears after 2 misses.');track('practice_writing',{character:cur});
-      writer.quiz({onComplete:s=>{toast(s.totalMistakes?`Finished with ${s.totalMistakes} miss${s.totalMistakes>1?'es':''}.`:'Perfect. No misses.');track('practice_complete',{character:cur,mistakes:s.totalMistakes})}})};
+    $('#anim').onclick=()=>{if(writer){writer.cancelQuiz?.();writer.showCharacter();writer.animateCharacter();}};
+    $('#practice').onclick=()=>{if(!writer)return;toast('Trace each stroke in order. A hint appears after 2 misses.');
+      writer.quiz({onComplete:s=>{toast(s.totalMistakes?`Finished with ${s.totalMistakes} miss${s.totalMistakes>1?'es':''}.`:'Perfect. No misses.');}})};
     $('#say').onclick=()=>speak(cur);
   }
   function renderWords(){
@@ -295,7 +290,7 @@ function makeExplorer(){
     if(hist){setMeta(c);const p=C.path(c);if(decodeURIComponent(location.pathname)!==decodeURIComponent(p))history.pushState({c},'',p)}
     const fresh=firstPaint&&mode==='char'&&maxLv===7&&!toneChars;
     renderCard();renderGraph();if(!fresh){renderWords();renderFam()}else{$('#wordsPanel').classList.toggle('quiz',quiz);$('#quizbtn').classList.toggle('on',quiz)}renderTrail();firstPaint=false;
-    if(!first)track('select_character',{character:c});
+    
     if(flashWord){const r=document.querySelector(`.wrow[data-w="${CSS.escape(flashWord)}"]`);if(r){r.scrollIntoView({block:'center',behavior:'smooth'});r.classList.add('flash')}}
   }
   function click(t){
@@ -305,7 +300,7 @@ function makeExplorer(){
     if(t.dataset.more){const k=cur+t.dataset.more;openLv.has(k)?openLv.delete(k):openLv.add(k);renderWords();return}
     if(t.classList.contains('gl')&&t.closest('.quiz'))t.classList.toggle('shown');
   }
-  $('#quizbtn').onclick=()=>{quiz=!quiz;store.set('quiz',quiz);renderWords();track('toggle_hide_english',{on:quiz})};
+  $('#quizbtn').onclick=()=>{quiz=!quiz;store.set('quiz',quiz);renderWords();};
   const tb=$('#tonechars');tb.classList.toggle('on',toneChars);tb.setAttribute('aria-pressed',toneChars);
   tb.onclick=()=>{toneChars=!toneChars;store.set('toneChars',toneChars);tb.classList.toggle('on',toneChars);tb.setAttribute('aria-pressed',toneChars);renderGraph();renderWords()};
   addEventListener('popstate',e=>{

@@ -23,7 +23,7 @@ function ensureIndex(){for(;indexed<WORDS.length;indexed++){const w=WORDS[indexe
 const WORDS=DATA.w.split('\n').map(parseWord);
 const WORDMAP=new Map(WORDS.map(w=>[w.w,w]));
 const CH={};
-for(const [c,a] of Object.entries(DATA.c))CH[c]={c,py:a[0]?a[0].split(','):[],def:a[1],parts:[...a[2]],rad:a[3],type:a[4],hint:a[5],ph:a[6],se:a[7],strokes:a[8]||0,rank:a[9]||0,words:[],kids:[],lv:99};
+for(const [c,a] of Object.entries(DATA.c))CH[c]={c,py:a[0]?a[0].split(','):[],def:a[1],parts:[...a[2]],rad:a[3],type:a[4],hint:a[5],ph:a[6],se:a[7],strokes:a[8]||0,rank:a[9]||0,rc:a[10]||'',words:[],kids:[],lv:99};
 for(const w of WORDS)for(const c of new Set(w.w)){const o=CH[c];if(o){o.words.push(w.i);if(w.lv<o.lv)o.lv=w.lv}}
 let extraLoaded=false;
 function addWords(tsv){if(extraLoaded)return;extraLoaded=true;for(const l of tsv.split('\n')){if(!l)continue;const w=parseWord(l,WORDS.length);if(WORDMAP.has(w.w))continue;WORDS.push(w);WORDMAP.set(w.w,w);for(const c of new Set(w.w)){const o=CH[c];if(o)o.words.push(w.i)}}}
@@ -50,16 +50,20 @@ function colorWord(w,wordObj,toneChars){
   return [...w].map((ch,k)=>({ch,cls:toneChars&&wordObj&&wordObj.syl.length===[...w].length?'t'+sylTone(wordObj.syl[k]):''}))}
 const SPK='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const TYPE={pictographic:'Pictograph',ideographic:'Ideograph',pictophonetic:'Sound + meaning'};
+/* what a part does in a character: Dong Chinese where it covers the part, otherwise Make Me a Hanzi */
+const RC={m:'meaning',s:'sound',p:'picture',o:'other'};
+function roleOf(o,p){const i=o.parts.indexOf(p),k=i>=0?o.rc[i]:'';if(k&&k!=='-')return RC[k];return p===o.ph?'sound':p===o.se?'meaning':'other'}
 
 /* card */
 function cardHTML(c){
   const o=CH[c]||{c,py:[],def:'',parts:[],words:[],kids:[],lv:99,strokes:0};
   const pys=readings(c),def=charDef(c);
   const parts=o.parts.map(p=>{const po=CH[p];
-    const role=p===o.ph?'<span class="role sound">sound</span>':p===o.se?'<span class="role meaning">meaning</span>':'';
+    const r=roleOf(o,p),role=r==='other'?'':`<span class="role ${r}">${r}</span>`;
     return `<a class="part" href="${path(p)}" data-go="${esc(p)}"><span class="g" lang="zh-Hans">${esc(p)}</span><span class="m">${role}<b>${po&&po.py[0]?pyHTML(po.py[0]):'&nbsp;'}</b><small>${esc(po&&po.def?po.def:'component')}</small></span></a>`}).join('');
   let story='';
-  if(o.type==='pictophonetic'&&(o.ph||o.se)){
+  // a short hint is a gloss of the meaning part, so it reads as part of the sound/meaning sentence
+  if((o.ph||o.se)&&(o.type==='pictophonetic'||!o.hint||o.hint.split(' ').length<4)){
     const sp=o.ph&&CH[o.ph]?CH[o.ph].py[0]:'';
     story=(o.se?`${zh(o.se)} hints at the meaning${o.hint?` (${esc(o.hint)})`:''}`:'')+(o.se&&o.ph?', and ':'')+
       (o.ph?`${zh(o.ph)}${sp?` <span class="t${sylTone(sp)}">${esc(sp)}</span>`:''} hints at the sound`:'')+'.';
@@ -90,9 +94,11 @@ function cardHTML(c){
       ${o.rank?`<span class="pill freqpill" title="Rank among the most-used characters in written Chinese">#${o.rank.toLocaleString('en-US')} most used ${meter(rankBand(o.rank))}</span>`:''}
       <span class="pill">${hskCount(o)} HSK word${hskCount(o)===1?'':'s'}</span>
     </div>
-    ${o.parts.length?`<div class="sect"><h2>Built from</h2><div class="parts">${parts}</div></div>`:''}
+    ${o.parts.length?`<div class="sect"><h2>Built from ${partsLink(c)}</h2><div class="parts">${parts}</div></div>`:''}
     ${story?`<div class="sect"><h2>How it works</h2><p class="story">${story}</p></div>`:''}`;
 }
+
+const partsLink=c=>`<a class="sect-link" rel="nofollow" href="/map/?q=${encodeURIComponent(c)}&amp;links=parts">Parts network</a>`;
 
 /* words */
 function wordsHTML(c,{maxLv=7,toneChars=false,openLv=new Set()}={}){
@@ -120,7 +126,7 @@ function famHTML(c,{maxLv=7}={}){
   const o=CH[c];const secs=[];
   if(o){
     const kids=o.kids.filter(k=>CH[k].lv<=maxLv).slice(0,30);
-    if(kids.length)secs.push(`<div class="sect"><h2>Found inside</h2><div class="chips">${kids.map(k=>charLink(k)).join('')}</div></div>`);
+    if(kids.length)secs.push(`<div class="sect"><h2>Found inside ${partsLink(c)}</h2><div class="chips">${kids.map(k=>charLink(k)).join('')}</div></div>`);
     if(o.ph){const f=(phonFam[o.ph]||[]).filter(x=>x!==c&&CH[x].lv<=maxLv).sort(byLv).slice(0,24);
       if(f.length)secs.push(`<div class="sect"><h2>Sound family · ${zh(o.ph)}</h2><p class="why">Same sound part${CH[o.ph]&&CH[o.ph].py[0]?`, ${esc(CH[o.ph].py[0])}`:''}.</p><div class="chips">${f.map(k=>charLink(k)).join('')}</div></div>`)}
     const sk=o.se||(o.rad&&o.rad!==c?o.rad:'');
@@ -180,7 +186,7 @@ function resultsHTML(q,r){
     (!r.chars.length&&!r.words.length?`<p class="empty">Nothing matched “${esc(q)}”. Try a character, pinyin like <b>dian</b> or <b>dian4</b>, or an English word.</p>`:'');
 }
 
-return {addWords,meter,rankBand,FREQ,hskCount,extraLoaded:()=>extraLoaded,esc,zh,path,LVNAME,LVSLUG,HAN,sylTone,sylPlain,pyHTML,pyHTMLJoined,WORDS,WORDMAP,CH,byLv,charPy,charDef,readings,
+return {roleOf,addWords,meter,rankBand,FREQ,hskCount,extraLoaded:()=>extraLoaded,esc,zh,path,LVNAME,LVSLUG,HAN,sylTone,sylPlain,pyHTML,pyHTMLJoined,WORDS,WORDMAP,CH,byLv,charPy,charDef,readings,
   charLink,colorWord,cardHTML,wordsHTML,famHTML,metaFor,search,resultsHTML,SPK};
 }
 if(typeof module!=='undefined')module.exports=makeCore;

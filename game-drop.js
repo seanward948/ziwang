@@ -3,7 +3,6 @@
 const root=document.getElementById('drop');if(!root)return;
 const store={get(k,d){try{const v=localStorage.getItem('ziwang.drop.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){try{localStorage.setItem('ziwang.drop.'+k,JSON.stringify(v))}catch(e){}}};
-const track=(n,p)=>{try{if(window.gtag)window.gtag('event',n,p||{})}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const MARK={'̄':1,'́':2,'̌':3,'̀':4};
 const tone=s=>{for(const ch of String(s).normalize('NFD'))if(MARK[ch])return MARK[ch];return 5};
@@ -147,7 +146,6 @@ function init(PAIRS){
       made.unshift(f.o);
       const li=document.createElement('li');li.innerHTML=`<a href="/zi/${encodeURIComponent(f.o.ch)}/" target="_blank" rel="noopener"><span class="cn" lang="zh-Hans">${esc(f.o.ch)}</span><span class="t${tone(f.o.py)}">${esc(f.o.py)}</span><small>${esc(f.o.def)}</small></a>`;
       const list=$s('made');list.prepend(li);while(list.children.length>8)list.lastChild.remove();
-      track('radical_drop_build',{character:f.o.ch});
     }
     level=1+Math.floor(made.length/6);updateStats();
     setTimeout(()=>{gravity();setTimeout(()=>resolve(chain+1),reduce?0:200)},reduce?0:330);
@@ -155,11 +153,11 @@ function init(PAIRS){
   function gravity(){for(let c=0;c<COLS;c++){let w=ROWS-1;for(let r=ROWS-1;r>=0;r--){const t=grid[r][c];if(t){if(r!==w){grid[w][c]=t;grid[r][c]=null;place(t.el,w,c)}w--}}}}
 
   function show(html){overlay.innerHTML=html;overlay.hidden=!html}
-  function startGame(){reset();state='play';show('');spawn();board.focus({preventScroll:true});if(matchMedia('(max-width:720px)').matches)root.scrollIntoView({block:'start',behavior:reduce?'auto':'smooth'});track('radical_drop_start',{level:String(diff)});$s('lvname').textContent=levelName(diff)}
+  function startGame(){reset();state='play';show('');spawn();board.focus({preventScroll:true});if(matchMedia('(max-width:720px)').matches)root.scrollIntoView({block:'start',behavior:reduce?'auto':'smooth'});$s('lvname').textContent=levelName(diff)}
   function pause(){if(state==='play'){state='paused';clearTimeout(timer);show(`<div class="ov"><h2>Paused</h2><button class="btn primary" type="button" data-ov="resume">Resume</button></div>`)}
     else if(state==='paused'){state='play';show('');schedule()}}
   function gameOver(){
-    state='over';clearTimeout(timer);updateStats();track('radical_drop_over',{score,built:made.length});
+    state='over';clearTimeout(timer);updateStats();
     const uniq=[...new Map(made.map(o=>[o.ch,o])).values()];
     show(`<div class="ov"><h2>Board full</h2><p>Score <b>${score}</b>${score>=best&&score>0?' · new best':''}</p>
       ${uniq.length?`<p class="hint">You built ${made.length} character${made.length>1?'s':''}:</p><div class="ov-made">${uniq.slice(0,24).map(o=>`<a href="/zi/${encodeURIComponent(o.ch)}/" title="${esc(o.py)}: ${esc(o.def)}"><span class="cn" lang="zh-Hans">${esc(o.ch)}</span><small class="t${tone(o.py)}">${esc(o.py)}</small></a>`).join('')}</div>`:''}

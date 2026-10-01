@@ -3,7 +3,6 @@
 const root=document.getElementById('six');if(!root)return;
 const store={get(k,d){try{const v=localStorage.getItem('ziwang.six.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){try{localStorage.setItem('ziwang.six.'+k,JSON.stringify(v))}catch(e){}}};
-const track=(n,p)=>{try{if(window.gtag)window.gtag('event',n,p||{})}catch(e){}};
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const NS='http://www.w3.org/2000/svg';
 const K=20; // neighbours shown around each character
@@ -163,7 +162,7 @@ function init(C){
     const before=distT.get(c),after=distT.get(n);
     const go=()=>{
       S.busy=false;S.path.push(n);S.words.push(x.w.w);S.fb.push(after<before?'c':after>before?'f':'s');S.sel=null;S.hint=null;
-      if(n===S.target){S.done=true;track('six_degrees_complete',{mode:S.mode,level:String(S.level),steps:steps(),par:S.par,hints:S.hints});
+      if(n===S.target){S.done=true;
         if(S.mode==='daily'){const st=store.get('stats',{played:0,streak:0,last:0});if(st.last!==S.no){st.played++;st.streak=st.last===S.no-1?st.streak+1:1;st.last=S.no;store.set('stats',st)}}}
       save();renderHud();renderTrail();
       if(S.done)renderEnd(true);else{renderActions();drawWeb('burst')}
@@ -270,16 +269,16 @@ function init(C){
     if(b.dataset.tab){if(b.dataset.tab!==S.mode)b.dataset.tab==='daily'?start('daily',dayNo*7919+13):start('practice',Math.floor(Math.random()*1e9));return}
     const a=b.dataset.act;
     if(a==='undo'&&S.path.length>1){S.path.pop();S.words.pop();S.fb.pop();S.sel=null;S.hint=null;save();renderHud();renderTrail();renderActions();drawWeb('burst')}
-    else if(a==='hint'){const o=nextBest(cur());if(!o)return;S.hints++;S.hint={from:cur(),n:o.n};save();renderHud();drawWeb('none');track('six_degrees_hint')}
+    else if(a==='hint'){const o=nextBest(cur());if(!o)return;S.hints++;S.hint={from:cur(),n:o.n};save();renderHud();drawWeb('none');}
     else if(a==='giveup'){let c=cur();while(c!==S.target){const o=nextBest(c);if(!o)break;S.path.push(o.n);S.words.push(o.w.w);S.fb.push('x');c=o.n}
-      S.done=true;S.gaveUp=true;save();renderHud();renderTrail();renderEnd(true);track('six_degrees_giveup',{mode:S.mode})}
-    else if(a==='new'||a==='random'){start('practice',Math.floor(Math.random()*1e9));track('six_degrees_practice',{level:String(practiceLevel)})}
+      S.done=true;S.gaveUp=true;save();renderHud();renderTrail();renderEnd(true);}
+    else if(a==='new'||a==='random'){start('practice',Math.floor(Math.random()*1e9));}
     else if(a==='daily')start('daily',dayNo*7919+13);
     else if(a==='share'){
       const text=shareText();const done=()=>{b.textContent='Copied!';setTimeout(()=>b.textContent='Copy result',1800)};
       const fallback=()=>{const pre=$('sxShareText');const r=document.createRange();r.selectNodeContents(pre);const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected. Copy it now'};
       try{navigator.clipboard.writeText(text).then(done,fallback)}catch(err){fallback()}
-      track('six_degrees_share')}
+      }
   });
   root.addEventListener('submit',e=>{
     if(e.target.id!=='sxType')return;e.preventDefault();
@@ -291,7 +290,6 @@ function init(C){
     if(o.lv>G.max){say(`That word isn’t in ${esc(levelName(S.level))}. Switch to All words to use it.`);return}
     const others=[...new Set(w)].filter(ch=>ch!==c&&CH[ch]);
     if(!others.length){say('There’s no other character in that word to hop to.');return}
-    track('six_degrees_typed',{word:w});
     if(others.length===1){hop(others[0],o);return}
     say(`Hop to ${others.map(ch=>`<button type="button" class="btn" data-typed="${esc(ch)}" data-tw="${esc(w)}"><span class="cn" lang="zh-Hans">${esc(ch)}</span></button>`).join(' ')}`);
   });
