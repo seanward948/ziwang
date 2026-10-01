@@ -39,7 +39,7 @@ function init(C){
   // the full parts network is a dense mesh around hub components, so it starts in ForceAtlas2 sized by out-degree
   const modeState={words:{layout:'force',size:'default'},parts:{layout:'force',size:'default'},partsFull:{layout:'fa2',size:'out'}};
   // Overview shows jumps or the full network; Explore starts from one character and grows with each click
-  let view=params.get('view')==='explore'?'explore':'overview';
+  let view=params.get('view')==='overview'?'overview':'explore'; // links from the rest of the site open in Explore
   let shown=new Set(),opened=new Map(),hist=[],spawn=new Map(),curG=null;const BATCH=40;
   const isFull=()=>view==='overview'&&hops===0;
   const stateKey=()=>net==='parts'?(isFull()?'partsFull':'parts'):'words';
@@ -292,7 +292,7 @@ function init(C){
     $('mapHops').hidden=view==='explore';$('mapExp').hidden=view!=='explore';$('mapUndo').disabled=!hist.length;
     $('mapQ').value=q;$('mapNet').value=net;
     updateLevelOptions();legend();renderSettings();
-    try{const u=new URL(location.href);u.searchParams.set('q',q);u.searchParams.set('hops',hops);u.searchParams.delete('lv');u.searchParams.set('hsk',lv);u.searchParams.set('layout',layout);if(view==='explore')u.searchParams.set('view','explore');else u.searchParams.delete('view');if(net==='parts')u.searchParams.set('links','parts');else u.searchParams.delete('links');if(net==='parts'&&follow!=='both')u.searchParams.set('follow',follow);else u.searchParams.delete('follow');
+    try{const u=new URL(location.href);u.searchParams.set('q',q);u.searchParams.set('hops',hops);u.searchParams.delete('lv');u.searchParams.set('hsk',lv);u.searchParams.set('layout',layout);u.searchParams.set('view',view);if(net==='parts')u.searchParams.set('links','parts');else u.searchParams.delete('links');if(net==='parts'&&follow!=='both')u.searchParams.set('follow',follow);else u.searchParams.delete('follow');
       if(net==='words'&&dampen)u.searchParams.set('hubs','damp');else u.searchParams.delete('hubs');if(net==='words'&&backbone)u.searchParams.set('backbone',alphaTh);else u.searchParams.delete('backbone');history.replaceState(null,'',u)}catch(e){}
     stats=`${nodes.length.toLocaleString()} characters · ${links.length.toLocaleString()} links${view==='explore'?` · ${opened.size} opened`:''}${truncated?' · trimmed to fit this device':''}`;
     if(!isFull()&&!links.length)info.innerHTML=`<p class="hint">${esc(q)} has no links at ${lvLabel(lv)}. Tick more levels to see its neighbours.</p>`;else showDefault();
