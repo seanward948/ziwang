@@ -106,7 +106,7 @@ const explorer=({card,gtitle,wtitle,bar,wlist,fam,char})=>`
   <section class="main">
     <article class="panel card" id="card">${card}</article>
     <div class="panel graphp">
-      <div class="gtop"><h2 id="gtitle">${gtitle}</h2><a class="btn" id="ctxBtn" rel="nofollow" href="/map/${char?`?q=${encodeURIComponent(char)}`:''}">View in context</a><button class="btn" id="tonechars" type="button" aria-pressed="false" title="Colour characters by tone">Tone colours</button></div>
+      <div class="gtop"><h2 id="gtitle">${gtitle}</h2><a class="btn" id="ctxBtn" rel="nofollow" href="/map/${char?`?q=${encodeURIComponent(char)}`:''}">Full network map</a><button class="btn" id="tonechars" type="button" aria-pressed="false" title="Colour characters by tone">Tone colours</button></div>
       <svg id="graph" role="img" aria-label="Network of words containing this character"></svg>
       <div class="caption" id="caption"><span class="hint">Tap a word to hear it. Tap an outer character to travel there.</span></div>
     </div>

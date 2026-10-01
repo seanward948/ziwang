@@ -115,7 +115,7 @@ function wordsHTML(c,{maxLv=7,toneChars=false,openLv=new Set()}={}){
         const cw=colorWord(w.w,w,toneChars);
         return `<div class="wrow" data-w="${esc(w.w)}"><div class="w" lang="zh-Hans">${cw.map(({ch,cls})=>CH[ch]&&ch!==c?`<a href="${path(ch)}" data-go="${esc(ch)}" class="${cls}">${esc(ch)}</a>`:`<span class="me ${cls}">${esc(ch)}</span>`).join('')}</div>
         <div class="py">${pyHTMLJoined(w.py)}</div><div class="gl">${esc(w.gl)}</div>${meter(w.fb)||'<span class="freq"></span>'}
-        <span class="wact"><a class="ico ctx" rel="nofollow" href="/map/?q=${encodeURIComponent(w.w)}" title="View in context" aria-label="View ${esc(w.w)} in the character network"></a><button type="button" class="ico spk" data-say="${esc(w.w)}" title="Listen" aria-label="Hear ${esc(w.w)}"></button></span></div>`}).join('')}
+        <span class="wact"><a class="ico ctx" rel="nofollow" href="/map/?q=${encodeURIComponent(w.w)}" title="Full network map" aria-label="Show ${esc(w.w)} on the full network map"></a><button type="button" class="ico spk" data-say="${esc(w.w)}" title="Listen" aria-label="Hear ${esc(w.w)}"></button></span></div>`}).join('')}
         ${g.length>LIM?`<button type="button" class="linkbtn more" data-more="${lv}">${open?'Show fewer':`Show all ${g.length}`}</button>`:''}</div>`}).join('');
   }
   return {title:`Words with ${zh(c)}`,bar,body};
