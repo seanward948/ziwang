@@ -30,7 +30,7 @@ I'm not a software developer. I built Zìwǎng with [Claude](https://claude.ai).
 - See how common it is, and how common each of its words is
 
 **See how it's built**
-- The parts it's made from, labelled as the *meaning* part or the *sound* part where that applies
+- The parts it's made from, labelled as the *meaning*, *sound* or *picture* part where that applies
 - A short note on where the character comes from, e.g. 休 is a person 亻 leaning against a tree 木
 - **Sound family:** characters that share its sound part (妈 吗 码 骂)
 - **Meaning family:** characters that share its meaning part
@@ -45,8 +45,9 @@ I'm not a software developer. I built Zìwǎng with [Claude](https://claude.ai).
 
 **See the network**
 - Open any character or word in the character network, where characters are linked by the words they share. Hover over a link to see the word.
+- Switch the links to **Character parts** to see how characters are built instead: arrows run from a part to each character that uses it, coloured by the part's job: meaning, sound, picture or other. Jumps can follow the arrows forward, backward or both ways, you can show only some kinds of part, and there's a layered hierarchy layout. Open it from **Parts network** on any character page.
 - Choose how many jumps out to show and which HSK levels to include, or view the full network
-- Layouts: force-directed, ForceAtlas2 (with gravity, LinLog and other settings), rings by distance, rings by HSK level and a frequency spiral
+- Layouts: force-directed, ForceAtlas2 (with gravity, LinLog, dissuade hubs and other settings), rings by distance, rings by HSK level and a frequency spiral
 - Size characters by connections or by frequency, and colour them by HSK level, distance or community
 - Show or hide the links. When they're hidden, click a character to see its links.
 
@@ -79,10 +80,11 @@ I'm not a software developer. I built Zìwǎng with [Claude](https://claude.ai).
 | [Jun Da's character frequency list](https://lingua.mtsu.edu/chinese-computing/) | How common each character is | Free for non-commercial use |
 | [jieba](https://github.com/fxsjy/jieba) | How common each word is, and which extra words to include | MIT |
 | [Make Me a Hanzi](https://github.com/skishore/makemeahanzi) | Character parts, origins and stroke data | Arphic Public License / LGPL |
+| [Dong Chinese](https://www.dong-chinese.com) ([chinese-lexicon](https://www.npmjs.com/package/chinese-lexicon)) | What each part does (meaning, sound or picture) for about 2,100 characters | ISC |
 | [Hanzi Writer](https://hanziwriter.org) | Stroke animation and writing practice | MIT |
 | [D3](https://d3js.org) | Drawing and laying out the character network | ISC |
 
-Fonts are Noto Serif SC, Schibsted Grotesk and Ma Shan Zheng from Google Fonts.
+Fonts are Noto Serif SC, Schibsted Grotesk and Ma Shan Zheng (SIL Open Font License), installed from [Fontsource](https://fontsource.org) and served from the site itself, along with D3. Apart from Cloudflare's analytics script, pages don't load anything from other sites.
 
 ---
 
@@ -103,7 +105,7 @@ The site is plain HTML, CSS and JavaScript.
 | `data.json` | HSK words and characters, prepared from the sources above |
 | `extra-words.tsv` | The words beyond HSK, loaded in the background |
 | `radical-pairs.json` | Which parts make which characters, for Radical Drop |
-| `config.js` | Analytics ID and support link |
+| `config.js` | Cloudflare Web Analytics token and support link |
 
 ### Run it yourself
 
@@ -121,7 +123,7 @@ Then open http://localhost:8000. The site expects to be served from the root of 
 
 ## Privacy
 
-There are no accounts. Your theme, trail, game progress and settings are saved in your own browser and never leave it. The site uses Google Analytics to count visits and see which features people use.
+There are no accounts. Your theme, trail, game progress and settings are saved in your own browser and never leave it. Visits are counted with [Cloudflare Web Analytics](https://www.cloudflare.com/web-analytics/), which uses no cookies, doesn't fingerprint visitors and doesn't track you across sites.
 
 ---
 
