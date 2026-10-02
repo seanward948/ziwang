@@ -1,0 +1,22 @@
+name: Deploy feedback worker
+
+on:
+  push:
+    branches: [main]
+    paths: ['feedback-worker/**', '.github/workflows/feedback.yml']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: feedback-worker
+          secrets: |
+            TO_EMAIL
+        env:
+          TO_EMAIL: ${{ secrets.FEEDBACK_TO_EMAIL }}
