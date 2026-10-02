@@ -32,8 +32,11 @@ function init(C){
   const trail=store.get('trail',[]);
   let q=(params.get('q')||trail[trail.length-1]||'电').trim();
   let hops=params.has('hops')?+params.get('hops'):params.get('links')==='parts'?2:1, lv=params.has('hsk')?lvKey(params.get('hsk').split(',').map(Number)):params.has('lv')?lvKey(Array.from({length:Math.min(8,Math.max(1,+params.get('lv')||1))},(_,i)=>i+1)):'1';
-  // a fresh link starts at HSK 1 up to the starting character's own level, so it opens with neighbours
-  if(!params.has('hsk')&&!params.has('lv')){const top=Math.max(1,...[...q].map(c=>CH[c]&&CH[c].lv<=7?CH[c].lv:1));lv=lvKey(Array.from({length:top},(_,i)=>i+1))}
+  // opening the map without chosen levels: start at HSK 1 up to the character's own level, and on this first
+  // view only, add levels until the character has neighbours. After that, levels are exactly what the user ticks.
+  if(!params.get('q')&&![...q].some(c=>CH[c]))q='电';
+  let autoLv=!params.has('hsk')&&!params.has('lv');
+  if(autoLv){const top=Math.max(1,...[...q].map(c=>CH[c]&&CH[c].lv<=7?CH[c].lv:1));lv=lvKey(Array.from({length:top},(_,i)=>i+1))}
   let net=params.get('links')==='parts'?'parts':'words';
   // each kind of link keeps its own layout and node size; parts default to ForceAtlas2 sized by out-degree
   // the full parts network is a dense mesh around hub components, so it starts in ForceAtlas2 sized by out-degree
@@ -256,6 +259,11 @@ function init(C){
     let G=graphFor(lv),{E,adj}=G;
     const chars=[...new Set([...q])].filter(c=>CH[c]);
     // the starting character always shows, even with no links at the chosen levels; the full network only shows linked characters
+    if(autoLv&&!isFull()){autoLv=false;
+      const has=()=>chars.some(c=>(adj.get(c)||new Set()).size);let a=lvArr(lv);
+      for(let l=1;l<=7&&!has();l++)if(!a.includes(l)){a=[...a,l];lv=lvKey(a);G=graphFor(lv);({E,adj}=G)}
+      if(!has()&&!params.get('q')&&q!=='电'){q='电';chars.splice(0,chars.length,'电');lv='1';G=graphFor(lv);({E,adj}=G)} // a leftover component from the trail: fall back to 电
+    }else autoLv=false;
     seeds=isFull()?chars.filter(c=>adj.has(c)):chars;
     const depth=new Map();let truncated=false;curG=G;
     if(isFull()){for(const c of adj.keys())depth.set(c,seeds.includes(c)?0:null)}

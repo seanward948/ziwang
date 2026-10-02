@@ -96,7 +96,7 @@ const header=(isHome,char)=>`
 const nWordsFmt=WORDS.length.toLocaleString('en-US');
 const footer=`
 <footer class="foot">
-  <nav aria-label="Browse characters by HSK level"><b>Browse:</b>${[1,2,3,4,5,6,7].map(l=>` <a href="/hsk/${LVSLUG(l)}/">${LVNAME(l)}</a>`).join('')} <span aria-hidden="true">·</span> <a href="/map/">Network</a> <span aria-hidden="true">·</span> <a href="/games/">Games</a></nav>
+  <nav aria-label="Browse characters by HSK level"><b>Browse:</b>${[1,2,3,4,5,6,7].map(l=>` <a href="/hsk/${LVSLUG(l)}/">${LVNAME(l)}</a>`).join('')} <span aria-hidden="true">·</span> <a href="/map/">Network</a> <span aria-hidden="true">·</span> <a href="/games/">Games</a> <span aria-hidden="true">·</span> <a href="/feedback/">Feedback</a></nav>
   <p>Privacy: no accounts, no cookies. Your settings stay in your browser, and visits are counted with <a href="https://www.cloudflare.com/web-analytics/" rel="noopener">Cloudflare Web Analytics</a>, which doesn’t track you across sites.</p>
   <p class="coffee-line"${COFFEE?'':' hidden'}>Free and ad-free. <a data-coffee href="${COFFEE||'#'}" target="_blank" rel="noopener">Buy me a coffee</a> if it helps.</p>
   <p>Data: <a href="https://github.com/drkameleon/complete-hsk-vocabulary" rel="noopener">HSK lists</a>, <a href="https://cc-cedict.org" rel="noopener">CC-CEDICT</a> (CC BY-SA 4.0), <a href="https://github.com/skishore/makemeahanzi" rel="noopener">Make Me a Hanzi</a>, <a href="https://www.dong-chinese.com" rel="noopener">Dong Chinese</a>, <a href="https://lingua.mtsu.edu/chinese-computing/" rel="noopener">Jun Da</a> and <a href="https://github.com/fxsjy/jieba" rel="noopener">jieba</a> frequencies. Strokes drawn with <a href="https://hanziwriter.org" rel="noopener">Hanzi Writer</a>.</p>
@@ -285,6 +285,30 @@ w('map/index.html',page({title:'Chinese character network: see how characters co
     {'@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[{'@type':'ListItem',position:1,name:'Zìwǎng',item:SITE+'/'},{'@type':'ListItem',position:2,name:'Character network',item:SITE+'/map/'}]}],
   body:`<main id="main" class="panel mappage"><div class="gp-head"><h1>Chinese character network</h1><span class="gc-zh"><span lang="zh-Hans" class="cn">字网</span> zìwǎng</span></div><div id="map" class="map"></div></main>`}));
 urls.splice(1,0,{loc:SITE+'/map/',pri:'0.8'});
+/* feedback: the form posts to a small Cloudflare Worker that emails it on, so no address appears on the site */
+const FEEDBACK_URL='https://feedback.ziwang.app/';
+w('feedback/index.html',page({title:'Feedback | Zìwǎng',desc:'Send feedback about Zìwǎng: a wrong definition, a bug or an idea.',url:'/feedback/',mode:'list',noindex:true,
+  body:`<main id="main" class="panel listpage fbpage">
+  <h1>Feedback</h1>
+  <p>Spotted a wrong definition or a bug, or have an idea? Let me know.</p>
+  <form id="fb" class="fb" novalidate>
+    <label class="fb-f">Message<textarea name="message" rows="7" maxlength="4000" required></textarea></label>
+    <label class="fb-f">Your email <small>(optional, only if you'd like a reply)</small><input name="email" type="email" maxlength="200" autocomplete="email"></label>
+    <label class="fb-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+    <div class="fb-act"><button class="btn primary" type="submit">Send</button><span class="fb-status" id="fbStatus" role="status" aria-live="polite"></span></div>
+  </form>
+  <p class="fb-note">Your message is emailed to me through Cloudflare and isn't stored anywhere else.</p>
+</main>
+<script>(function(){var f=document.getElementById('fb'),st=document.getElementById('fbStatus'),t=Date.now(),from='';
+try{var r=document.referrer&&new URL(document.referrer);if(r&&r.origin===location.origin&&r.pathname!=='/feedback/')from=r.href}catch(e){}
+f.addEventListener('submit',function(e){e.preventDefault();var m=f.message.value.trim();if(m.length<3){st.textContent='Please write a little more.';f.message.focus();return}
+var b=f.querySelector('button');b.disabled=true;st.textContent='Sending…';
+fetch('${FEEDBACK_URL}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m,email:f.email.value.trim(),website:f.website.value,page:from,t:t})})
+.then(function(r){return r.json().catch(function(){return{}}).then(function(d){if(!r.ok||!d.ok)throw new Error(d.error||'')})})
+.then(function(){f.reset();st.textContent='Thanks, it’s on its way.'})
+.catch(function(err){st.textContent=err.message||'It couldn’t be sent just now. Please try again later.'})
+.finally(function(){b.disabled=false})})})();</script>`}));
+
 /* 404 */
 w('404.html',page({title:'Page not found | Zìwǎng',desc:'This page doesn’t exist.',url:'/404.html',mode:'list',noindex:true,
   body:`<main id="main" class="panel listpage"><h1>That page isn’t here</h1><p>Search for a character above, <a href="/">start from a random one</a>, or browse by level.</p>${tabs(0)}</main>`}));
