@@ -1,0 +1,9 @@
+# Deployed by .github/workflows/feedback.yml. The destination email is a secret (TO_EMAIL), not set here.
+name = "ziwang-feedback"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+workers_dev = false
+routes = [ { pattern = "feedback.ziwang.app", custom_domain = true } ]
+
+[[send_email]]
+name = "EMAIL"
