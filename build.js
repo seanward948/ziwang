@@ -316,6 +316,43 @@ w('404.html',page({title:'Page not found | Zìwǎng',desc:'This page doesn’t e
 /* sitemap, robots, CNAME, manifest */
 w('sitemap.xml',`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u=>`<url><loc>${u.loc}</loc><lastmod>${today}</lastmod><priority>${u.pri}</priority></url>`).join('\n')}\n</urlset>\n`);
 w('robots.txt',`User-agent: *\nAllow: /\nDisallow: /map/?\n\nSitemap: ${SITE}/sitemap.xml\n`);
+/* llms.txt: a short plain-markdown guide to the site for AI assistants (https://llmstxt.org). Counts come from the data, so it never goes stale. */
+const nCharPages=urls.filter(u=>u.loc.includes('/zi/')).length;
+const nComponents=nPages-nCharPages;
+const exChar='电';
+w('llms.txt',`# Zìwǎng 字网
+
+> Zìwǎng is a free, ad-free visual Chinese dictionary that presents Mandarin characters as a web of words. For each character it shows stroke order, the parts it is built from, characters that share its sound or meaning part, and every word it appears in, grouped by HSK 3.0 level. It is aimed at people learning Mandarin and needs no account.
+
+The site covers ${nCharPages.toLocaleString('en-US')} HSK characters (levels 1 to 7–9) plus about ${nComponents.toLocaleString('en-US')} components such as 讠 and 氵, and ${WORDS.length.toLocaleString('en-US')} HSK 3.0 words. A further 20,000 common words beyond HSK are loaded in the background for searching and word lists. English definitions come from CC-CEDICT.
+
+Each character has its own page, and the dictionary content (pinyin, meaning, HSK level, radical and stroke count, parts, families and word lists) is in the page HTML. Character pages live at ${SITE}/zi/<character>/ with the character percent-encoded, for example ${SITE}${C.path(exChar)} for ${exChar}. The word web, character network, stroke animation and games are interactive and need JavaScript.
+
+## Browse
+
+- [Home](${SITE}/): start from a random character, or search by character, pinyin (ma3) or English (horse)
+${[1,2,3,4,5,6,7].map(l=>`- [${LVNAME(l)} characters](${SITE}/hsk/${LVSLUG(l)}/): every character first taught at ${LVNAME(l)}, most used first`).join('\n')}
+- [Example character page: ${exChar}](${SITE}${C.path(exChar)}): parts, sound and meaning families, and words containing ${exChar}
+
+## Tools and games
+
+- [Character network](${SITE}/map/): interactive map of characters linked by the words they share, or by the parts they are built from
+- [Games](${SITE}/games/): free games built on characters and HSK words
+- [Six Degrees of 字](${SITE}/games/six-degrees/): a daily puzzle where you hop between characters through shared words
+- [Radical Drop](${SITE}/games/radical-drop/): a falling-parts game where you build real characters
+
+## Data and licensing
+
+- [Project README](https://github.com/seanward948/ziwang#readme): what the site does, its data sources and their licences
+- [Source code](https://github.com/seanward948/ziwang): licensed under the GNU AGPL v3
+
+## Optional
+
+- [Sitemap](${SITE}/sitemap.xml): every indexable page
+- [Feedback](${SITE}/feedback/): report a wrong definition or a bug
+
+When using Zìwǎng content, please credit Zìwǎng (${SITE}). The dictionary data keeps its original licences, for example CC-CEDICT definitions are CC BY-SA 4.0, so check the README before reusing it in bulk.
+`);
 w('CNAME','ziwang.app\n');
 w('.nojekyll','');
 w('site.webmanifest',JSON.stringify({name:'Zìwǎng 字网',short_name:'字网',description:'Explore Chinese characters as a web of words.',start_url:'/',display:'standalone',
